@@ -67,6 +67,12 @@ function ScreensPage() {
       socket.on("mappings:updated", () => {
         console.log("🔄 Mappings updated");
       });
+
+      // Listen for clear screens event
+      socket.on("screens:clear", () => {
+        console.log("🧹 Clearing screen display");
+        setCurrentImage(null);
+      });
     } catch (err) {
       console.error("Error initializing screen:", err);
       setError("Failed to initialize screen. Please refresh the page.");

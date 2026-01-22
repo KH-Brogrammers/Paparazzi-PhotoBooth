@@ -60,6 +60,12 @@ export class SocketService {
     });
   }
 
+  // Clear all screens
+  public clearAllScreens(): void {
+    this.io.emit('screens:clear');
+    console.log('📤 Clear signal sent to all screens');
+  }
+
   // Broadcast mapping update to all clients
   public broadcastMappingUpdate(mappings: any): void {
     this.io.emit('mappings:updated', mappings);

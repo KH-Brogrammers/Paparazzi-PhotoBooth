@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useCameraAccess } from '../hooks/useCameraAccess';
 import { useImageCapture } from '../hooks/useImageCapture';
+import { screenApi } from '../services/backend-api.service';
 import CameraGrid from '../components/CameraGrid';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
@@ -44,6 +45,14 @@ function CameraPage() {
       }
     });
     setCaptureCounts(newCounts);
+  };
+
+  const handleClearScreens = async () => {
+    try {
+      await screenApi.clearAll();
+    } catch (error) {
+      console.error('Error clearing screens:', error);
+    }
   };
 
   if (isLoading) {
@@ -155,6 +164,28 @@ function CameraPage() {
           </>
         )}
       </main>
+
+      {/* Refresh button - Global */}
+      <button
+        onClick={handleClearScreens}
+        className="fixed bottom-4 right-4 p-4 bg-purple-600 hover:bg-purple-700 text-white rounded-full shadow-lg transition-colors z-50"
+        title="Clear all screens"
+      >
+        <svg 
+          xmlns="http://www.w3.org/2000/svg" 
+          className="h-6 w-6" 
+          fill="none" 
+          viewBox="0 0 24 24" 
+          stroke="currentColor"
+        >
+          <path 
+            strokeLinecap="round" 
+            strokeLinejoin="round" 
+            strokeWidth={2} 
+            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" 
+          />
+        </svg>
+      </button>
     </div>
   );
 }
