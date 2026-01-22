@@ -40,7 +40,7 @@ function AdminPage() {
   useEffect(() => {
     loadData();
   }, []);
-  
+
   const handleCheckboxChange = (cameraId: string, screenId: string) => {
     setSelectedMappings((prev) => {
       const current = prev[cameraId] || [];
@@ -90,6 +90,36 @@ function AdminPage() {
     }
   };
 
+  const handleDeleteScreen = async (screenId: string, screenLabel: string) => {
+    if (confirm(`Are you sure you want to delete "${screenLabel}"? This will also remove it from all camera mappings.`)) {
+      try {
+        await screenApi.delete(screenId);
+        await loadData();
+        alert('Screen deleted successfully!');
+      } catch (error) {
+        console.error('Error deleting screen:', error);
+        alert('Failed to delete screen');
+      }
+    }
+  };
+
+  const handleDeleteAllScreens = async () => {
+    if (confirm(`Are you sure you want to delete ALL ${screens.length} screens? This will also clear all camera mappings.`)) {
+      try {
+        await screenApi.deleteAll();
+        await loadData();
+        alert('All screens deleted successfully!');
+      } catch (error) {
+        console.error('Error deleting all screens:', error);
+        alert('Failed to delete all screens');
+      }
+    }
+  };
+
+  const handleHardRefresh = () => {
+    window.location.reload();
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
@@ -111,9 +141,27 @@ function AdminPage() {
 
         {/* Screens Section */}
         <section className="mb-8">
-          <h2 className="text-2xl font-bold text-white mb-4">
-            Connected Screens ({screens.length})
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold text-white">
+              Connected Screens ({screens.length})
+            </h2>
+            <div className="flex space-x-3">
+              <button
+                onClick={handleHardRefresh}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors"
+              >
+                🔄 Hard Refresh
+              </button>
+              {screens.length > 0 && (
+                <button
+                  onClick={handleDeleteAllScreens}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors"
+                >
+                  🗑️ Delete All Screens
+                </button>
+              )}
+            </div>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {screens.map((screen) => (
               <div
@@ -138,12 +186,20 @@ function AdminPage() {
                     {screen.resolution.width} × {screen.resolution.height}
                   </p>
                 )}
-                <button
-                  onClick={() => handleUpdateScreenLabel(screen.screenId)}
-                  className="mt-3 text-blue-400 hover:text-blue-300 text-sm"
-                >
-                  Rename
-                </button>
+                <div className="flex space-x-2 mt-3">
+                  <button
+                    onClick={() => handleUpdateScreenLabel(screen.screenId)}
+                    className="text-blue-400 hover:text-blue-300 text-sm"
+                  >
+                    Rename
+                  </button>
+                  <button
+                    onClick={() => handleDeleteScreen(screen.screenId, screen.label)}
+                    className="text-red-400 hover:text-red-300 text-sm"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
             ))}
             {screens.length === 0 && (

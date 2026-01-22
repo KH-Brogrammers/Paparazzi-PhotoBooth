@@ -126,7 +126,7 @@ function ScreensPage() {
   }
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-black">
+    <div className="relative w-screen h-screen overflow-hidden bg-white">
       {/* Screen Info Overlay (Hidden in production) */}
       <div className="absolute top-4 right-4 bg-black/70 text-white px-4 py-2 rounded-lg text-sm z-50">
         <p>
@@ -142,11 +142,11 @@ function ScreensPage() {
 
       {/* Display captured image or logo */}
       {currentImage ? (
-        <div className="w-full h-full flex items-center justify-center bg-black">
+        <div className="w-full h-full flex justify-center bg-white">
           <img
             src={currentImage.imageUrl}
             alt={`Captured from ${currentImage.cameraLabel}`}
-            className="max-w-full max-h-full object-contain"
+            className="max-w-full max-h-full object-cover origin-top"
           />
 
           {/* Image Info */}
