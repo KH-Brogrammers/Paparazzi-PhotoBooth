@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 export const config = {
-  port: process.env.PORT || 8800,
+  port: process.env.BACKEND_PORT || 8800,
   mongodbUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/photo-shoot',
   aws: {
     region: process.env.AWS_REGION || 'us-east-1',
