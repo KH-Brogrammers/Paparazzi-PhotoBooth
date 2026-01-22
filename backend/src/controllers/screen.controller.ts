@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { Screen } from '../models/screen.model';
+import { CameraMapping } from '../models/cameraMapping.model';
+import { getSocketService } from '../services/socket.service';
 
 export class ScreenController {
   // Register or update a screen
@@ -106,12 +108,49 @@ export class ScreenController {
         return;
       }
 
+      // Remove this screen from all camera mappings
+      await CameraMapping.updateMany(
+        { screenIds: screenId },
+        { $pull: { screenIds: screenId } }
+      );
+
+      // Broadcast mapping update
+      const socketService = getSocketService();
+      const allMappings = await CameraMapping.find();
+      socketService.broadcastMappingUpdate(allMappings);
+
       res.status(200).json({ message: 'Screen deleted successfully' });
     } catch (error) {
       console.error('Error deleting screen:', error);
       res.status(500).json({
         error: 'INTERNAL_SERVER_ERROR',
         message: 'Failed to delete screen',
+      });
+    }
+  }
+
+  // Delete all screens
+  async deleteAllScreens(req: Request, res: Response): Promise<void> {
+    try {
+      await Screen.deleteMany({});
+
+      // Clear all screen mappings
+      await CameraMapping.updateMany(
+        {},
+        { $set: { screenIds: [] } }
+      );
+
+      // Broadcast mapping update
+      const socketService = getSocketService();
+      const allMappings = await CameraMapping.find();
+      socketService.broadcastMappingUpdate(allMappings);
+
+      res.status(200).json({ message: 'All screens deleted successfully' });
+    } catch (error) {
+      console.error('Error deleting all screens:', error);
+      res.status(500).json({
+        error: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to delete all screens',
       });
     }
   }

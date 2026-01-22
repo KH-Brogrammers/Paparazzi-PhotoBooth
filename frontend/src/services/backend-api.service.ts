@@ -32,9 +32,9 @@ export const screenApi = {
     return response.json();
   },
 
-  clearAll: async () => {
-    const response = await fetch(`${API_BASE_URL}/screens/clear`, {
-      method: 'POST',
+  deleteAll: async () => {
+    const response = await fetch(`${API_BASE_URL}/screens/all`, {
+      method: 'DELETE',
     });
     return response.json();
   },
