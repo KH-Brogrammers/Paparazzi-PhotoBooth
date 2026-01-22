@@ -1,7 +1,7 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useCameraAccess } from '../hooks/useCameraAccess';
 import { useImageCapture } from '../hooks/useImageCapture';
-import { screenApi } from '../services/backend-api.service';
+import { screenApi, imageApi } from '../services/backend-api.service';
 import CameraGrid from '../components/CameraGrid';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
@@ -12,6 +12,22 @@ function CameraPage() {
   const { captureImage, isCapturing } = useImageCapture();
   const cameraRefs = useRef<(CameraCardRef | null)[]>([]);
   const [captureCounts, setCaptureCounts] = useState<Record<string, number>>({});
+
+  // Load capture counts from database on mount
+  useEffect(() => {
+    const loadCaptureCounts = async () => {
+      try {
+        const response = await imageApi.getCaptureCounts();
+        if (response.counts) {
+          setCaptureCounts(response.counts);
+        }
+      } catch (error) {
+        console.error('Error loading capture counts:', error);
+      }
+    };
+
+    loadCaptureCounts();
+  }, []);
 
   const handleCaptureAll = async () => {
     if (isCapturing || cameras.length === 0) return;

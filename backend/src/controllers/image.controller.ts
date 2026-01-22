@@ -133,6 +133,33 @@ export class ImageController {
       });
     }
   }
+
+  // Get capture counts per camera
+  async getCaptureCounts(req: Request, res: Response): Promise<void> {
+    try {
+      const counts = await CapturedImage.aggregate([
+        {
+          $group: {
+            _id: '$cameraId',
+            count: { $sum: 1 }
+          }
+        }
+      ]);
+
+      const countsMap: Record<string, number> = {};
+      counts.forEach((item) => {
+        countsMap[item._id] = item.count;
+      });
+
+      res.status(200).json({ counts: countsMap });
+    } catch (error) {
+      console.error('Error fetching capture counts:', error);
+      res.status(500).json({
+        error: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to fetch capture counts',
+      });
+    }
+  }
 }
 
 export const imageController = new ImageController();

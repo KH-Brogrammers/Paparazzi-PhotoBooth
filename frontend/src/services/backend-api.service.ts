@@ -107,4 +107,9 @@ export const imageApi = {
     });
     return response.json();
   },
+
+  getCaptureCounts: async () => {
+    const response = await fetch(`${API_BASE_URL}/images/counts`);
+    return response.json();
+  },
 };
