@@ -41,6 +41,23 @@ class S3Service {
     };
   }
 
+  async uploadBuffer(
+    buffer: Buffer,
+    key: string,
+    contentType: string
+  ): Promise<string> {
+    const command = new PutObjectCommand({
+      Bucket: this.bucketName,
+      Key: key,
+      Body: buffer,
+      ContentType: contentType,
+    });
+
+    await this.s3Client.send(command);
+    
+    return `https://${this.bucketName}.s3.${config.aws.region}.amazonaws.com/${key}`;
+  }
+
   isConfigured(): boolean {
     return !!(
       config.aws.accessKeyId &&

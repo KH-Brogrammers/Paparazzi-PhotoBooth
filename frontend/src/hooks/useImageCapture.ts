@@ -37,46 +37,37 @@ export function useImageCapture() {
       const timestamp = Date.now();
       const fileName = `${sanitizeFileName(cameraLabel)}_${timestamp}.webp`;
 
-      // Try to upload to S3 first
-      const presignedData = await apiService.generatePresignedUrl({
-        fileName,
-        fileType: 'image/webp',
-        cameraId,
-      });
+      // Save to backend (which handles both S3 and local storage)
+      try {
+        await imageApi.save({
+          imageId,
+          cameraId,
+          cameraLabel,
+          imageData: dataUrl, // Send base64 data to backend
+          timestamp,
+        });
 
-      let capturedImage: CapturedImage;
+        console.log('✅ Image saved to backend (S3 + local storage)');
 
-      if (presignedData) {
-        // Upload to S3
-        const uploadSuccess = await apiService.uploadToS3(
-          presignedData.url,
-          blob
-        );
+        // Still save to IndexedDB for local preview
+        const capturedImage: CapturedImage = {
+          id: imageId,
+          cameraId,
+          cameraLabel,
+          dataUrl,
+          timestamp,
+          storageType: 's3', // Backend will determine actual storage
+        };
 
-        if (uploadSuccess) {
-          capturedImage = {
-            id: imageId,
-            cameraId,
-            cameraLabel,
-            dataUrl,
-            timestamp,
-            s3Key: presignedData.key,
-            storageType: 's3',
-          };
-        } else {
-          // S3 upload failed, fallback to local storage
-          capturedImage = {
-            id: imageId,
-            cameraId,
-            cameraLabel,
-            dataUrl,
-            timestamp,
-            storageType: 'local',
-          };
-        }
-      } else {
-        // Presigned URL generation failed, use local storage
-        capturedImage = {
+        await storageService.saveImage(capturedImage);
+
+        setIsCapturing(false);
+        return capturedImage;
+      } catch (error) {
+        console.error('Failed to save image to backend:', error);
+        
+        // Fallback: save only to IndexedDB if backend fails
+        const capturedImage: CapturedImage = {
           id: imageId,
           cameraId,
           cameraLabel,
@@ -84,36 +75,12 @@ export function useImageCapture() {
           timestamp,
           storageType: 'local',
         };
+
+        await storageService.saveImage(capturedImage);
+        
+        setIsCapturing(false);
+        return capturedImage;
       }
-
-      // Save to IndexedDB for local access
-      await storageService.saveImage(capturedImage);
-
-      // Save to MongoDB via backend API
-      try {
-        const s3Url = capturedImage.storageType === 's3' 
-          ? `https://${import.meta.env.VITE_API_AWS_S3_BUCKET_NAME || 'your-bucket'}.s3.amazonaws.com/${capturedImage.s3Key}`
-          : undefined;
-
-        await imageApi.save({
-          imageId,
-          cameraId,
-          cameraLabel,
-          s3Url,
-          s3Key: capturedImage.s3Key,
-          localUrl: capturedImage.storageType === 'local' ? capturedImage.dataUrl : undefined,
-          storageType: capturedImage.storageType,
-          timestamp,
-        });
-
-        console.log('✅ Image saved to MongoDB and socket emitted');
-      } catch (mongoError) {
-        console.error('Failed to save to MongoDB:', mongoError);
-        // Don't fail the whole capture if MongoDB save fails
-      }
-
-      setIsCapturing(false);
-      return capturedImage;
     } catch (error) {
       console.error('Error capturing image:', error);
       setIsCapturing(false);

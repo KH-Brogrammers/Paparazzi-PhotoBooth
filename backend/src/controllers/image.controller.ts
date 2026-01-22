@@ -2,31 +2,71 @@ import { Request, Response } from "express";
 import { CapturedImage } from "../models/capturedImage.model";
 import { CameraMapping } from "../models/cameraMapping.model";
 import { getSocketService } from "../services/socket.service";
+import { localStorageService } from "../services/localStorage.service";
+import { s3Service } from "../services/s3.service";
 
 export class ImageController {
-  // Save captured image
+  // Save captured image with both S3 and local storage
   async saveImage(req: Request, res: Response): Promise<void> {
     try {
       const {
         imageId,
         cameraId,
         cameraLabel,
-        s3Url,
-        s3Key,
-        localUrl,
-        storageType,
+        imageData,
         timestamp,
       } = req.body;
 
-      if (!imageId || !cameraId || !cameraLabel || !storageType || !timestamp) {
+      if (!imageId || !cameraId || !cameraLabel || !imageData || !timestamp) {
         res.status(400).json({
           error: "INVALID_REQUEST",
-          message:
-            "imageId, cameraId, cameraLabel, storageType, and timestamp are required",
+          message: "imageId, cameraId, cameraLabel, imageData, and timestamp are required",
         });
         return;
       }
 
+      const timestampNum = typeof timestamp === 'string' ? new Date(timestamp).getTime() : timestamp;
+
+      // ALWAYS save to local storage
+      const { relativePath } = await localStorageService.saveImage(
+        imageData,
+        cameraId,
+        timestampNum
+      );
+
+      const localUrl = `${process.env.BACKEND_URL || 'http://localhost:8800'}/api/images/local/${relativePath}`;
+
+      let s3Url: string | undefined;
+      let s3Key: string | undefined;
+      let finalStorageType: 's3' | 'local' = 'local';
+
+      // Try to upload to S3
+      if (s3Service.isConfigured()) {
+        try {
+          const s3Result = await localStorageService.uploadToS3(
+            imageData,
+            cameraId,
+            timestampNum,
+            `${timestampNum}.jpg`
+          );
+
+          if (s3Result) {
+            s3Url = s3Result.s3Url;
+            s3Key = s3Result.s3Key;
+            finalStorageType = 's3';
+            console.log(`✅ Image saved to both S3 and local storage`);
+          } else {
+            console.log(`⚠️ S3 upload failed, using local storage only`);
+          }
+        } catch (s3Error) {
+          console.error('S3 upload error:', s3Error);
+          console.log(`⚠️ S3 upload failed, using local storage only`);
+        }
+      } else {
+        console.log(`ℹ️ S3 not configured, using local storage only`);
+      }
+
+      // Save metadata to MongoDB
       const image = await CapturedImage.create({
         imageId,
         cameraId,
@@ -34,23 +74,23 @@ export class ImageController {
         s3Url,
         s3Key,
         localUrl,
-        storageType,
-        timestamp: new Date(timestamp),
+        storageType: finalStorageType,
+        timestamp: new Date(timestampNum),
       });
 
       // Get mapped screens for this camera
       const mapping = await CameraMapping.findOne({ cameraId });
 
       if (mapping && mapping.screenIds.length > 0) {
-        // Emit image to mapped screens via socket
+        // Emit image to mapped screens via socket (prefer S3 URL if available)
         const socketService = getSocketService();
         socketService.emitImageToScreens(mapping.screenIds, {
           imageId,
           cameraId,
           cameraLabel,
           imageUrl: s3Url || localUrl,
-          storageType,
-          timestamp,
+          storageType: finalStorageType,
+          timestamp: timestampNum,
         });
       }
 
@@ -157,6 +197,31 @@ export class ImageController {
       res.status(500).json({
         error: 'INTERNAL_SERVER_ERROR',
         message: 'Failed to fetch capture counts',
+      });
+    }
+  }
+
+  // Serve local image file
+  async serveLocalImage(req: Request, res: Response): Promise<void> {
+    try {
+      const { cameraId, filename } = req.params;
+      const relativePath = `${cameraId}/${filename}`;
+
+      if (!localStorageService.imageExists(relativePath)) {
+        res.status(404).json({
+          error: 'NOT_FOUND',
+          message: 'Image not found',
+        });
+        return;
+      }
+
+      const imagePath = localStorageService.getImagePath(relativePath);
+      res.sendFile(imagePath);
+    } catch (error) {
+      console.error('Error serving local image:', error);
+      res.status(500).json({
+        error: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to serve image',
       });
     }
   }
