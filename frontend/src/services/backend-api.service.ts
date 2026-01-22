@@ -38,6 +38,13 @@ export const screenApi = {
     });
     return response.json();
   },
+
+  clearAll: async () => {
+    const response = await fetch(`${API_BASE_URL}/screens/clear`, {
+      method: 'POST',
+    });
+    return response.json();
+  },
 };
 
 // Mapping APIs
