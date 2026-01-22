@@ -31,6 +31,13 @@ export const screenApi = {
     });
     return response.json();
   },
+
+  deleteAll: async () => {
+    const response = await fetch(`${API_BASE_URL}/screens/all`, {
+      method: 'DELETE',
+    });
+    return response.json();
+  },
 };
 
 // Mapping APIs
