@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react';
 import { screenApi, mappingApi } from '../services/backend-api.service';
 import { socketClient } from '../services/socket.service';
-import { useCameraAccess } from '../hooks/useCameraAccess';
 import { type Screen, type CameraMapping } from '../types/screen.types';
 
 function AdminPage() {
-  const { cameras } = useCameraAccess();
   const [screens, setScreens] = useState<Screen[]>([]);
   const [mappings, setMappings] = useState<CameraMapping[]>([]);
+  const [allCameras, setAllCameras] = useState<any[]>([]);
   const [selectedMappings, setSelectedMappings] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -61,6 +60,24 @@ function AdminPage() {
       loadData();
     });
     
+    // Listen for camera registrations from all devices
+    socket.on('cameras:registered', (camerasData: any[]) => {
+      console.log('📷 Cameras registered from device:', camerasData);
+      setAllCameras(prev => {
+        // Merge cameras from different devices, avoiding duplicates
+        const merged = [...prev];
+        camerasData.forEach(newCamera => {
+          if (!merged.find(cam => cam.deviceId === newCamera.deviceId)) {
+            merged.push(newCamera);
+          }
+        });
+        return merged;
+      });
+    });
+    
+    // Request cameras from all connected devices
+    socket.emit('admin:request-cameras');
+    
     return () => {
       socket.disconnect();
     };
@@ -85,7 +102,7 @@ function AdminPage() {
       setSaving(true);
 
       // Save all mappings
-      const savePromises = cameras.map((camera) => {
+      const savePromises = allCameras.map((camera) => {
         const screenIds = selectedMappings[camera.deviceId] || [];
         return mappingApi.update(camera.deviceId, camera.label, screenIds);
       });
@@ -252,7 +269,7 @@ function AdminPage() {
             Camera to Screen Mapping
           </h2>
           
-          {cameras.length === 0 ? (
+          {allCameras.length === 0 ? (
             <div className="bg-gray-800 border-2 border-gray-700 rounded-lg p-8 text-center">
               <p className="text-gray-400">
                 No cameras detected. Please go to the home page to initialize cameras.
@@ -266,7 +283,7 @@ function AdminPage() {
             </div>
           ) : (
             <div className="space-y-6">
-              {cameras.map((camera) => (
+              {allCameras.map((camera) => (
                 <div
                   key={camera.deviceId}
                   className="bg-gray-800 border-2 border-gray-700 rounded-lg p-6"
@@ -309,7 +326,7 @@ function AdminPage() {
         </section>
 
         {/* Save Button */}
-        {cameras.length > 0 && screens.length > 0 && (
+        {allCameras.length > 0 && screens.length > 0 && (
           <div className="flex justify-center">
             <button
               onClick={handleSaveMappings}

@@ -2,6 +2,7 @@ import { useRef, useState, useEffect } from 'react';
 import { useCameraAccess } from '../hooks/useCameraAccess';
 import { useImageCapture } from '../hooks/useImageCapture';
 import { screenApi, imageApi } from '../services/backend-api.service';
+import { socketClient } from '../services/socket.service';
 import CameraGrid from '../components/CameraGrid';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
@@ -28,6 +29,25 @@ function CameraPage() {
 
     loadCaptureCounts();
   }, []);
+
+  // Register cameras with admin panel via socket
+  useEffect(() => {
+    if (cameras.length > 0) {
+      const socket = socketClient.connect();
+      
+      // Register cameras with admin panel
+      socket.emit('cameras:register', cameras);
+      
+      // Listen for admin requests for camera info
+      socket.on('admin:request-cameras', () => {
+        socket.emit('cameras:register', cameras);
+      });
+      
+      return () => {
+        socket.disconnect();
+      };
+    }
+  }, [cameras]);
 
   const handleCaptureAll = async () => {
     if (isCapturing || cameras.length === 0) return;

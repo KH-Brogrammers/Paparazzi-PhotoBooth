@@ -1,6 +1,6 @@
 import { io, Socket } from 'socket.io-client';
 
-const SOCKET_URL = 'http://localhost:8800';
+const SOCKET_URL = import.meta.env.VITE_PUBLIC_BACKEND_URL || 'http://localhost:8800';
 
 class SocketClient {
   private socket: Socket | null = null;

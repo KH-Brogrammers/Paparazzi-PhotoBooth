@@ -39,6 +39,20 @@ export class SocketService {
         console.log(`📷 Camera registered: ${cameraId} (${socket.id})`);
       });
 
+      // Handle camera registration from devices
+      socket.on('cameras:register', (cameras: any[]) => {
+        console.log(`📷 Cameras registered from device:`, cameras);
+        // Broadcast to admin panels
+        this.io.emit('cameras:registered', cameras);
+      });
+
+      // Handle admin request for cameras
+      socket.on('admin:request-cameras', () => {
+        console.log(`📋 Admin requesting cameras`);
+        // Broadcast request to all camera devices
+        socket.broadcast.emit('admin:request-cameras');
+      });
+
       // Handle disconnection
       socket.on('disconnect', () => {
         console.log(`🔌 Client disconnected: ${socket.id}`);
