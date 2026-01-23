@@ -28,6 +28,9 @@ export class SocketService {
         console.log(`📺 Screen registered: ${screenId} (${socket.id})`);
         
         socket.emit('registered', { screenId, socketId: socket.id });
+        
+        // Notify admin panels about new screen
+        this.io.emit('screen:registered', { screenId });
       });
 
       // Camera registration
@@ -40,11 +43,14 @@ export class SocketService {
       socket.on('disconnect', () => {
         console.log(`🔌 Client disconnected: ${socket.id}`);
         
-        // Remove screen from map
+        // Remove screen from map and notify admin panels
         for (const [screenId, socketId] of this.screenSockets.entries()) {
           if (socketId === socket.id) {
             this.screenSockets.delete(screenId);
             console.log(`📺 Screen unregistered: ${screenId}`);
+            
+            // Notify admin panels about disconnected screen
+            this.io.emit('screen:disconnected', { screenId });
             break;
           }
         }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { screenApi, mappingApi } from '../services/backend-api.service';
+import { socketClient } from '../services/socket.service';
 import { useCameraAccess } from '../hooks/useCameraAccess';
 import { type Screen, type CameraMapping } from '../types/screen.types';
 
@@ -39,6 +40,30 @@ function AdminPage() {
 
   useEffect(() => {
     loadData();
+    
+    // Connect to socket for real-time updates
+    const socket = socketClient.connect();
+    
+    // Listen for screen registration/disconnection
+    socket.on('screen:registered', () => {
+      console.log('📺 Screen registered - refreshing admin panel');
+      loadData();
+    });
+    
+    socket.on('screen:disconnected', () => {
+      console.log('📺 Screen disconnected - refreshing admin panel');
+      loadData();
+    });
+    
+    // Listen for mapping updates
+    socket.on('mappings:updated', () => {
+      console.log('🔄 Mappings updated - refreshing admin panel');
+      loadData();
+    });
+    
+    return () => {
+      socket.disconnect();
+    };
   }, []);
 
   const handleCheckboxChange = (cameraId: string, screenId: string) => {
