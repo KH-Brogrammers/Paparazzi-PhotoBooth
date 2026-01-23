@@ -44,22 +44,23 @@ export class ScreenController {
     }
   }
 
-  // Get all screens
+  // Get all screens (including disconnected ones from database)
   async getAllScreens(req: Request, res: Response): Promise<void> {
     try {
-      // Get all screens from database
+      // Get all screens from database (both connected and disconnected)
       const allScreens = await Screen.find().sort({ createdAt: 1 });
       
       // Get currently connected screens from socket service
       const socketService = getSocketService();
       const connectedScreenIds = socketService.getConnectedScreens();
       
-      // Filter to only show connected screens
-      const connectedScreens = allScreens.filter(screen => 
-        connectedScreenIds.includes(screen.screenId)
-      );
+      // Mark which screens are currently connected
+      const screensWithStatus = allScreens.map(screen => ({
+        ...screen.toObject(),
+        isConnected: connectedScreenIds.includes(screen.screenId)
+      }));
       
-      res.status(200).json(connectedScreens);
+      res.status(200).json(screensWithStatus);
     } catch (error) {
       console.error('Error fetching screens:', error);
       res.status(500).json({

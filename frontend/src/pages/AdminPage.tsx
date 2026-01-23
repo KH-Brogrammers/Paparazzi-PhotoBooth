@@ -143,7 +143,7 @@ function AdminPage() {
         <section className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-2xl font-bold text-white">
-              Connected Screens ({screens.length})
+              All Screens ({screens.length})
             </h2>
             <div className="flex space-x-3">
               <button
@@ -169,9 +169,18 @@ function AdminPage() {
                 className="bg-gray-800 border-2 border-gray-700 rounded-lg p-4"
               >
                 <div className="flex items-start justify-between mb-2">
-                  <h3 className="text-white font-semibold text-lg">
-                    {screen.label}
-                  </h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-white font-semibold text-lg">
+                      {screen.label}
+                    </h3>
+                    <span className={`px-2 py-1 text-xs rounded-full ${
+                      (screen as any).isConnected 
+                        ? 'bg-green-600 text-white' 
+                        : 'bg-red-600 text-white'
+                    }`}>
+                      {(screen as any).isConnected ? '● Online' : '○ Offline'}
+                    </span>
+                  </div>
                   {screen.isPrimary && (
                     <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded">
                       Primary

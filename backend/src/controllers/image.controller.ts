@@ -37,6 +37,21 @@ export class ImageController {
         return;
       }
 
+      // Filter to only connected screens
+      const socketService = getSocketService();
+      const connectedScreenIds = socketService.getConnectedScreens();
+      const activeScreenIds = mapping.screenIds.filter(screenId => 
+        connectedScreenIds.includes(screenId)
+      );
+
+      if (activeScreenIds.length === 0) {
+        res.status(400).json({
+          error: "NO_ACTIVE_SCREENS",
+          message: "No connected screens mapped to this camera",
+        });
+        return;
+      }
+
       // Create folder structure: HH:MM:SS_DD/MM/YYYY/cameraId
       const date = new Date(timestampNum);
       const timeFolder = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}_${date.getDate().toString().padStart(2, '0')}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getFullYear()}`;
@@ -44,8 +59,8 @@ export class ImageController {
 
       const savedImages: any[] = [];
 
-      // Save one image per mapped screen
-      for (let i = 0; i < mapping.screenIds.length; i++) {
+      // Save one image per connected mapped screen
+      for (let i = 0; i < activeScreenIds.length; i++) {
         const screenNumber = i + 1;
         const screenImageId = `${imageId}_screen_${screenNumber}`;
 
@@ -98,9 +113,8 @@ export class ImageController {
         savedImages.push(image);
       }
 
-      // Emit image to mapped screens via socket
-      const socketService = getSocketService();
-      mapping.screenIds.forEach((screenId, index) => {
+      // Emit image to connected mapped screens via socket
+      activeScreenIds.forEach((screenId, index) => {
         const screenImage = savedImages[index];
         socketService.emitImageToScreens([screenId], {
           imageId: screenImage.imageId,
@@ -112,12 +126,12 @@ export class ImageController {
         });
       });
 
-      console.log(`✅ Saved ${savedImages.length} images for ${mapping.screenIds.length} mapped screens`);
+      console.log(`✅ Saved ${savedImages.length} images for ${activeScreenIds.length} connected screens`);
 
       res.status(201).json({
         message: `Successfully saved ${savedImages.length} images`,
         images: savedImages,
-        screenCount: mapping.screenIds.length
+        screenCount: activeScreenIds.length
       });
     } catch (error) {
       console.error("Error saving image:", error);
