@@ -68,22 +68,18 @@ export async function detectScreens(): Promise<DetectedScreen[]> {
 }
 
 export function generateScreenId(): string {
-  // Generate unique screen ID for fallback
-  const storedId = localStorage.getItem('screenId');
-  if (storedId) {
-    return storedId;
-  }
-
-  const newId = `screen-${generateId()}`;
-  localStorage.setItem('screenId', newId);
-  return newId;
+  // Generate unique screen ID for each tab/window instance
+  return `screen-${generateId()}-${Date.now()}`;
 }
 
 export function getCurrentScreenInfo(): DetectedScreen {
-  // Fallback screen info
+  // Fallback screen info with unique ID for each tab
+  const screenId = generateScreenId();
+  const screenNumber = screenId.split('-')[1].slice(-3); // Last 3 digits for display
+  
   return {
-    screenId: generateScreenId(),
-    label: `Screen ${Math.floor(Math.random() * 1000)}`,
+    screenId,
+    label: `Screen ${screenNumber}`,
     position: {
       left: window.screenX,
       top: window.screenY,
