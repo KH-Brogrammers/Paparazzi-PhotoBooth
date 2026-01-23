@@ -88,6 +88,6 @@ export function getCurrentScreenInfo(): DetectedScreen {
       width: window.screen.width,
       height: window.screen.height,
     },
-    isPrimary: true,
+    isPrimary: false, // Set to false by default
   };
 }

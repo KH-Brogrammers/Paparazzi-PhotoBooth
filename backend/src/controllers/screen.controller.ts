@@ -44,8 +44,19 @@ export class ScreenController {
   // Get all screens
   async getAllScreens(req: Request, res: Response): Promise<void> {
     try {
-      const screens = await Screen.find().sort({ createdAt: 1 });
-      res.status(200).json(screens);
+      // Get all screens from database
+      const allScreens = await Screen.find().sort({ createdAt: 1 });
+      
+      // Get currently connected screens from socket service
+      const socketService = getSocketService();
+      const connectedScreenIds = socketService.getConnectedScreens();
+      
+      // Filter to only show connected screens
+      const connectedScreens = allScreens.filter(screen => 
+        connectedScreenIds.includes(screen.screenId)
+      );
+      
+      res.status(200).json(connectedScreens);
     } catch (error) {
       console.error('Error fetching screens:', error);
       res.status(500).json({

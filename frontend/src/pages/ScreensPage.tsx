@@ -11,9 +11,13 @@ function ScreensPage() {
   const [currentImage, setCurrentImage] = useState<ImageData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isRegistered, setIsRegistered] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   const socketRef = useRef<any>(null);
 
   const initializeScreen = async () => {
+    if (isInitialized) return; // Prevent double initialization
+    setIsInitialized(true);
+
     try {
       // Try to detect screen using Window Placement API
       const screens = await detectScreens();
@@ -44,7 +48,7 @@ function ScreensPage() {
         label: screenInfo.label,
         position: screenInfo.position,
         resolution: screenInfo.resolution,
-        isPrimary: screenInfo.isPrimary,
+        isPrimary: false, // Set to false by default
       });
 
       console.log("✅ Screen registered with backend");
@@ -76,6 +80,7 @@ function ScreensPage() {
     } catch (err) {
       console.error("Error initializing screen:", err);
       setError("Failed to initialize screen. Please refresh the page.");
+      setIsInitialized(false); // Reset on error
     }
   };
 
