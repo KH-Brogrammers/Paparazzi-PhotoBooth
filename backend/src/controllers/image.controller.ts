@@ -27,10 +27,20 @@ export class ImageController {
 
       const timestampNum = typeof timestamp === 'string' ? new Date(timestamp).getTime() : timestamp;
 
-      // ALWAYS save to local storage
-      const { relativePath } = await localStorageService.saveImage(
+      // Get mapped screens for this camera to determine screen count
+      const mapping = await CameraMapping.findOne({ cameraId });
+      const screenCount = mapping ? mapping.screenIds.length : 0;
+
+      // Create folder structure: HH:MM:SS_DD/MM/YYYY/cameraId
+      const date = new Date(timestampNum);
+      const timeFolder = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}_${date.getDate().toString().padStart(2, '0')}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getFullYear()}`;
+      const folderName = `${timeFolder}/${cameraId}`;
+
+      // ALWAYS save to local storage with new folder structure
+      const { relativePath } = await localStorageService.saveImageWithFolder(
         imageData,
-        cameraId,
+        folderName,
+        screenCount,
         timestampNum
       );
 
@@ -40,14 +50,14 @@ export class ImageController {
       let s3Key: string | undefined;
       let finalStorageType: 's3' | 'local' = 'local';
 
-      // Try to upload to S3
+      // Try to upload to S3 with new folder structure
       if (s3Service.isConfigured()) {
         try {
-          const s3Result = await localStorageService.uploadToS3(
+          const s3Result = await localStorageService.uploadToS3WithFolder(
             imageData,
-            cameraId,
-            timestampNum,
-            `${timestampNum}.jpg`
+            folderName,
+            screenCount,
+            timestampNum
           );
 
           if (s3Result) {
@@ -77,9 +87,6 @@ export class ImageController {
         storageType: finalStorageType,
         timestamp: new Date(timestampNum),
       });
-
-      // Get mapped screens for this camera
-      const mapping = await CameraMapping.findOne({ cameraId });
 
       if (mapping && mapping.screenIds.length > 0) {
         // Emit image to mapped screens via socket (prefer S3 URL if available)
@@ -204,8 +211,8 @@ export class ImageController {
   // Serve local image file
   async serveLocalImage(req: Request, res: Response): Promise<void> {
     try {
-      const { cameraId, filename } = req.params;
-      const relativePath = `${cameraId}/${filename}`;
+      const { timeFolder, cameraId, filename } = req.params;
+      const relativePath = `${timeFolder}/${cameraId}/${filename}`;
 
       if (!localStorageService.imageExists(relativePath)) {
         res.status(404).json({

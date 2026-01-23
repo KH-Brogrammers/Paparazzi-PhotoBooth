@@ -69,11 +69,50 @@ class LocalStorageService {
     return fs.existsSync(fullPath);
   }
 
-  async uploadToS3(
+  async saveImageWithFolder(
     base64Data: string,
-    cameraId: string,
-    timestamp: number,
-    filename: string
+    folderName: string,
+    screenNumber: number,
+    timestamp: number
+  ): Promise<{ localPath: string; relativePath: string }> {
+    try {
+      // Create folder structure: folderName/screen_X_photo.jpg
+      const folderPath = path.join(this.basePath, folderName);
+      if (!fs.existsSync(folderPath)) {
+        fs.mkdirSync(folderPath, { recursive: true });
+        console.log(`📁 Created folder: ${folderPath}`);
+      }
+
+      // Generate filename: screen_1_photo.jpg, screen_2_photo.jpg, etc.
+      const filename = `screen_${screenNumber}_photo.jpg`;
+      const filePath = path.join(folderPath, filename);
+
+      // Remove data:image/xxx;base64, prefix if present
+      const base64Image = base64Data.replace(/^data:image\/\w+;base64,/, '');
+
+      // Convert base64 to buffer and save
+      const buffer = Buffer.from(base64Image, 'base64');
+      fs.writeFileSync(filePath, buffer);
+
+      const relativePath = `${folderName}/${filename}`;
+      
+      console.log(`💾 Image saved locally: ${relativePath}`);
+
+      return {
+        localPath: filePath,
+        relativePath,
+      };
+    } catch (error) {
+      console.error('Error saving image to local storage:', error);
+      throw error;
+    }
+  }
+
+  async uploadToS3WithFolder(
+    base64Data: string,
+    folderName: string,
+    screenNumber: number,
+    timestamp: number
   ): Promise<{ s3Url: string; s3Key: string } | null> {
     try {
       // Import S3 service
@@ -84,13 +123,14 @@ class LocalStorageService {
         return null;
       }
 
-      const key = `photos/${cameraId}/${timestamp}-${filename}`;
+      const filename = `screen_${screenNumber}_photo.jpg`;
+      const key = `photos/${folderName}/${filename}`;
       
       // Remove data:image/xxx;base64, prefix if present
       const base64Image = base64Data.replace(/^data:image\/\w+;base64,/, '');
       const buffer = Buffer.from(base64Image, 'base64');
 
-      // Upload to S3 (you'll need to implement direct upload in s3.service.ts)
+      // Upload to S3
       const s3Url = await s3Service.uploadBuffer(buffer, key, 'image/jpeg');
 
       console.log(`☁️ Image uploaded to S3: ${key}`);
