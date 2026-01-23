@@ -9,7 +9,7 @@ import ErrorMessage from '../components/ErrorMessage';
 import { type CameraCardRef } from '../components/CameraCard';
 
 function CameraPage() {
-  const { cameras, isLoading, error } = useCameraAccess();
+  const { cameras, isLoading, error, currentCamera, canSwitchCamera, switchCamera } = useCameraAccess();
   const { captureImage, isCapturing } = useImageCapture();
   const cameraRefs = useRef<(CameraCardRef | null)[]>([]);
   const [captureCounts, setCaptureCounts] = useState<Record<string, number>>({});
@@ -42,6 +42,11 @@ function CameraPage() {
       socket.on('admin:request-cameras', () => {
         socket.emit('cameras:register', cameras);
       });
+
+      // Emit cameras detected event for global button
+      window.dispatchEvent(new CustomEvent('cameras-detected', { 
+        detail: { cameras } 
+      }));
       
       return () => {
         socket.disconnect();
@@ -49,38 +54,51 @@ function CameraPage() {
     }
   }, [cameras]);
 
+  // Listen for global camera switch events
+  useEffect(() => {
+    const handleSwitchCamera = (event: CustomEvent) => {
+      if (canSwitchCamera) {
+        switchCamera();
+      }
+    };
+
+    window.addEventListener('switch-camera', handleSwitchCamera as EventListener);
+    
+    return () => {
+      window.removeEventListener('switch-camera', handleSwitchCamera as EventListener);
+    };
+  }, [canSwitchCamera, switchCamera]);
+
   const handleCaptureAll = async () => {
-    if (isCapturing || cameras.length === 0) return;
+    if (isCapturing || !currentCamera) return;
 
-    // Show flash on all cameras
-    cameraRefs.current.forEach((ref) => {
-      ref?.showFlash();
-    });
+    // Show flash on current camera
+    cameraRefs.current[0]?.showFlash();
 
-    // Capture from all cameras
-    const capturePromises = cameraRefs.current.map(async (ref) => {
-      if (!ref) return null;
+    // Capture from current camera
+    try {
+      const ref = cameraRefs.current[0];
+      if (!ref) return;
 
       const cameraData = await ref.capture();
-      if (!cameraData) return null;
+      if (!cameraData) return;
 
-      return captureImage(
+      const result = await captureImage(
         cameraData.videoElement,
         cameraData.cameraId,
         cameraData.cameraLabel
       );
-    });
 
-    const results = await Promise.all(capturePromises);
-
-    // Update capture counts for successful captures
-    const newCounts = { ...captureCounts };
-    results.forEach((result) => {
       if (result) {
-        newCounts[result.cameraId] = (newCounts[result.cameraId] || 0) + 1;
+        // Update capture count for this camera
+        setCaptureCounts(prev => ({
+          ...prev,
+          [result.cameraId]: (prev[result.cameraId] || 0) + 1
+        }));
       }
-    });
-    setCaptureCounts(newCounts);
+    } catch (error) {
+      console.error('Error capturing image:', error);
+    }
   };
 
   const handleClearScreens = async () => {
@@ -100,9 +118,9 @@ function CameraPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
-      {/* Header */}
-      <header className="mb-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 md:p-6">
+      {/* Header - Hidden on mobile */}
+      <header className="mb-8 hidden md:block">
         <div className="max-w-7xl mx-auto">
           <h1 className="text-4xl font-bold text-white mb-2">
             Photo Shoot Studio
@@ -115,7 +133,7 @@ function CameraPage() {
       </header>
 
       {/* Camera Grid */}
-      <main className="max-w-7xl mx-auto">
+      <main className="md:max-w-7xl md:mx-auto h-screen md:h-auto">
         {cameras.length === 0 ? (
           <div className="bg-gray-800 border-2 border-gray-700 rounded-xl p-12 text-center">
             <svg
@@ -141,7 +159,7 @@ function CameraPage() {
         ) : (
           <>
             <CameraGrid 
-              cameras={cameras} 
+              cameras={currentCamera ? [currentCamera] : cameras} 
               cameraRefs={cameraRefs}
               captureCounts={captureCounts}
             />

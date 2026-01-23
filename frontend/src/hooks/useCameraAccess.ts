@@ -5,6 +5,7 @@ export function useCameraAccess() {
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentCameraIndex, setCurrentCameraIndex] = useState(0);
   const streamsRef = useRef<Map<string, MediaStream>>(new Map());
 
   useEffect(() => {
@@ -137,10 +138,24 @@ export function useCameraAccess() {
     }
   };
 
+  const switchCamera = () => {
+    if (cameras.length > 1) {
+      const nextIndex = (currentCameraIndex + 1) % cameras.length;
+      setCurrentCameraIndex(nextIndex);
+    }
+  };
+
+  const getCurrentCamera = () => {
+    return cameras[currentCameraIndex] || cameras[0];
+  };
+
   return {
     cameras,
     isLoading,
     error,
+    currentCamera: getCurrentCamera(),
+    canSwitchCamera: cameras.length > 1,
+    switchCamera,
     stopCamera,
     restartCamera,
   };

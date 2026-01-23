@@ -39,7 +39,7 @@ const CameraCard = forwardRef<CameraCardRef, CameraCardProps>(({ camera, capture
   }));
 
   return (
-    <div className="relative bg-gray-900 rounded-xl overflow-hidden shadow-2xl border-2 border-gray-800 hover:border-blue-500 transition-all duration-300 group">
+    <div className="relative bg-gray-900 md:rounded-xl overflow-hidden shadow-2xl border-2 border-gray-800 hover:border-blue-500 transition-all duration-300 group h-screen md:h-auto">
       {/* Camera Label */}
       <div className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/70 to-transparent p-4">
         <div className="flex items-center justify-between">
@@ -60,7 +60,7 @@ const CameraCard = forwardRef<CameraCardRef, CameraCardProps>(({ camera, capture
       </div>
 
       {/* Video Preview */}
-      <div className="relative aspect-video bg-black">
+      <div className="relative h-full md:aspect-video bg-black">
         <video
           ref={videoRef}
           autoPlay
