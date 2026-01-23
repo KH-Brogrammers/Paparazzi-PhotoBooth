@@ -45,6 +45,15 @@ export const screenApi = {
     });
     return response.json();
   },
+
+  saveScreenCapture: async (captureData: any) => {
+    const response = await fetch(`${API_BASE_URL}/screens/capture`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(captureData),
+    });
+    return response.json();
+  },
 };
 
 // Mapping APIs

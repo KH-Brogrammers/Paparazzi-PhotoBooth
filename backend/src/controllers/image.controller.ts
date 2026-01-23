@@ -27,81 +27,98 @@ export class ImageController {
 
       const timestampNum = typeof timestamp === 'string' ? new Date(timestamp).getTime() : timestamp;
 
-      // Get mapped screens for this camera to determine screen count
+      // Get mapped screens for this camera
       const mapping = await CameraMapping.findOne({ cameraId });
-      const screenCount = mapping ? mapping.screenIds.length : 0;
+      if (!mapping || mapping.screenIds.length === 0) {
+        res.status(400).json({
+          error: "NO_SCREENS_MAPPED",
+          message: "No screens mapped to this camera",
+        });
+        return;
+      }
 
       // Create folder structure: HH:MM:SS_DD/MM/YYYY/cameraId
       const date = new Date(timestampNum);
       const timeFolder = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}_${date.getDate().toString().padStart(2, '0')}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getFullYear()}`;
       const folderName = `${timeFolder}/${cameraId}`;
 
-      // ALWAYS save to local storage with new folder structure
-      const { relativePath } = await localStorageService.saveImageWithFolder(
-        imageData,
-        folderName,
-        screenCount,
-        timestampNum
-      );
+      const savedImages: any[] = [];
 
-      const localUrl = `${process.env.BACKEND_URL || 'http://localhost:8800'}/api/images/local/${relativePath}`;
+      // Save one image per mapped screen
+      for (let i = 0; i < mapping.screenIds.length; i++) {
+        const screenNumber = i + 1;
+        const screenImageId = `${imageId}_screen_${screenNumber}`;
 
-      let s3Url: string | undefined;
-      let s3Key: string | undefined;
-      let finalStorageType: 's3' | 'local' = 'local';
+        // ALWAYS save to local storage with new folder structure
+        const { relativePath } = await localStorageService.saveImageWithFolder(
+          imageData,
+          folderName,
+          screenNumber,
+          timestampNum
+        );
 
-      // Try to upload to S3 with new folder structure
-      if (s3Service.isConfigured()) {
-        try {
-          const s3Result = await localStorageService.uploadToS3WithFolder(
-            imageData,
-            folderName,
-            screenCount,
-            timestampNum
-          );
+        const localUrl = `${process.env.BACKEND_URL || 'http://localhost:8800'}/api/images/local/${relativePath}`;
 
-          if (s3Result) {
-            s3Url = s3Result.s3Url;
-            s3Key = s3Result.s3Key;
-            finalStorageType = 's3';
-            console.log(`✅ Image saved to both S3 and local storage`);
-          } else {
-            console.log(`⚠️ S3 upload failed, using local storage only`);
+        let s3Url: string | undefined;
+        let s3Key: string | undefined;
+        let finalStorageType: 's3' | 'local' = 'local';
+
+        // Try to upload to S3 with new folder structure
+        if (s3Service.isConfigured()) {
+          try {
+            const s3Result = await localStorageService.uploadToS3WithFolder(
+              imageData,
+              folderName,
+              screenNumber,
+              timestampNum
+            );
+
+            if (s3Result) {
+              s3Url = s3Result.s3Url;
+              s3Key = s3Result.s3Key;
+              finalStorageType = 's3';
+            }
+          } catch (s3Error) {
+            console.error('S3 upload error:', s3Error);
           }
-        } catch (s3Error) {
-          console.error('S3 upload error:', s3Error);
-          console.log(`⚠️ S3 upload failed, using local storage only`);
         }
-      } else {
-        console.log(`ℹ️ S3 not configured, using local storage only`);
-      }
 
-      // Save metadata to MongoDB
-      const image = await CapturedImage.create({
-        imageId,
-        cameraId,
-        cameraLabel,
-        s3Url,
-        s3Key,
-        localUrl,
-        storageType: finalStorageType,
-        timestamp: new Date(timestampNum),
-      });
-
-      if (mapping && mapping.screenIds.length > 0) {
-        // Emit image to mapped screens via socket (prefer S3 URL if available)
-        const socketService = getSocketService();
-        socketService.emitImageToScreens(mapping.screenIds, {
-          imageId,
+        // Save metadata to MongoDB for each screen image
+        const image = await CapturedImage.create({
+          imageId: screenImageId,
           cameraId,
           cameraLabel,
-          imageUrl: s3Url || localUrl,
+          s3Url,
+          s3Key,
+          localUrl,
           storageType: finalStorageType,
-          timestamp: timestampNum,
+          timestamp: new Date(timestampNum),
         });
+
+        savedImages.push(image);
       }
 
-      res.status(201).json(image);
+      // Emit image to mapped screens via socket
+      const socketService = getSocketService();
+      mapping.screenIds.forEach((screenId, index) => {
+        const screenImage = savedImages[index];
+        socketService.emitImageToScreens([screenId], {
+          imageId: screenImage.imageId,
+          cameraId,
+          cameraLabel,
+          imageUrl: screenImage.s3Url || screenImage.localUrl,
+          storageType: screenImage.storageType,
+          timestamp: timestampNum,
+        });
+      });
+
+      console.log(`✅ Saved ${savedImages.length} images for ${mapping.screenIds.length} mapped screens`);
+
+      res.status(201).json({
+        message: `Successfully saved ${savedImages.length} images`,
+        images: savedImages,
+        screenCount: mapping.screenIds.length
+      });
     } catch (error) {
       console.error("Error saving image:", error);
       res.status(500).json({

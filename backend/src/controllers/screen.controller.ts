@@ -1,7 +1,10 @@
 import { Request, Response } from 'express';
 import { Screen } from '../models/screen.model';
 import { CameraMapping } from '../models/cameraMapping.model';
+import { CapturedImage } from '../models/capturedImage.model';
 import { getSocketService } from '../services/socket.service';
+import { localStorageService } from '../services/localStorage.service';
+import { s3Service } from '../services/s3.service';
 
 export class ScreenController {
   // Register or update a screen
@@ -136,6 +139,103 @@ export class ScreenController {
       res.status(500).json({
         error: 'INTERNAL_SERVER_ERROR',
         message: 'Failed to delete screen',
+      });
+    }
+  }
+
+  // Save screen capture (what's displayed on screen)
+  async saveScreenCapture(req: Request, res: Response): Promise<void> {
+    try {
+      const {
+        screenId,
+        originalImageId,
+        cameraId,
+        screenImageData,
+        timestamp,
+      } = req.body;
+
+      if (!screenId || !originalImageId || !cameraId || !screenImageData || !timestamp) {
+        res.status(400).json({
+          error: 'INVALID_REQUEST',
+          message: 'screenId, originalImageId, cameraId, screenImageData, and timestamp are required',
+        });
+        return;
+      }
+
+      const timestampNum = typeof timestamp === 'string' ? new Date(timestamp).getTime() : timestamp;
+
+      // Get screen number from mapping
+      const mapping = await CameraMapping.findOne({ cameraId });
+      if (!mapping) {
+        res.status(404).json({
+          error: 'NOT_FOUND',
+          message: 'Camera mapping not found',
+        });
+        return;
+      }
+
+      const screenIndex = mapping.screenIds.indexOf(screenId);
+      const screenNumber = screenIndex + 1;
+
+      // Create folder structure: HH:MM:SS_DD/MM/YYYY/cameraId
+      const date = new Date(timestampNum);
+      const timeFolder = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}_${date.getDate().toString().padStart(2, '0')}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getFullYear()}`;
+      const folderName = `${timeFolder}/${cameraId}`;
+
+      // Save screen capture to storage
+      const { relativePath } = await localStorageService.saveImageWithFolder(
+        screenImageData,
+        folderName,
+        screenNumber,
+        timestampNum
+      );
+
+      const localUrl = `${process.env.BACKEND_URL || 'http://localhost:8800'}/api/images/local/${relativePath}`;
+
+      let s3Url: string | undefined;
+      let s3Key: string | undefined;
+      let finalStorageType: 's3' | 'local' = 'local';
+
+      // Try to upload to S3
+      if (s3Service.isConfigured()) {
+        try {
+          const s3Result = await localStorageService.uploadToS3WithFolder(
+            screenImageData,
+            folderName,
+            screenNumber,
+            timestampNum
+          );
+
+          if (s3Result) {
+            s3Url = s3Result.s3Url;
+            s3Key = s3Result.s3Key;
+            finalStorageType = 's3';
+          }
+        } catch (s3Error) {
+          console.error('S3 upload error:', s3Error);
+        }
+      }
+
+      // Save metadata to MongoDB
+      const screenCapture = await CapturedImage.create({
+        imageId: `${originalImageId}_screen_${screenNumber}_display`,
+        cameraId,
+        cameraLabel: `Screen ${screenNumber} Display`,
+        s3Url,
+        s3Key,
+        localUrl,
+        storageType: finalStorageType,
+        timestamp: new Date(timestampNum),
+      });
+
+      console.log(`📸 Screen ${screenNumber} display captured and saved`);
+
+      res.status(201).json(screenCapture);
+    } catch (error) {
+      console.error('Error saving screen capture:', error);
+      res.status(500).json({
+        error: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to save screen capture',
       });
     }
   }

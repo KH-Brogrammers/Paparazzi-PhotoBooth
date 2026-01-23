@@ -14,6 +14,45 @@ function ScreensPage() {
   const [isInitialized, setIsInitialized] = useState(false);
   const socketRef = useRef<any>(null);
 
+  const captureScreenDisplay = async (originalImageData: ImageData) => {
+    try {
+      // Capture the current screen content
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) return;
+      
+      // Set canvas size to screen size
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      
+      // Use html2canvas to capture the screen content
+      const html2canvas = (await import('html2canvas')).default;
+      const screenCanvas = await html2canvas(document.body, {
+        width: window.innerWidth,
+        height: window.innerHeight,
+        useCORS: true,
+        allowTaint: true,
+      });
+      
+      // Convert to base64
+      const screenImageData = screenCanvas.toDataURL('image/jpeg', 0.9);
+      
+      // Send the screen capture back to server for storage
+      await screenApi.saveScreenCapture({
+        screenId,
+        originalImageId: originalImageData.imageId,
+        cameraId: originalImageData.cameraId,
+        screenImageData,
+        timestamp: Date.now(),
+      });
+      
+      console.log("📸 Screen display captured and saved");
+    } catch (error) {
+      console.error("Error capturing screen display:", error);
+    }
+  };
+
   const initializeScreen = async () => {
     if (isInitialized) return; // Prevent double initialization
     setIsInitialized(true);
@@ -65,6 +104,11 @@ function ScreensPage() {
       socket.on("image:captured", (imageData: ImageData) => {
         console.log("📸 Received image:", imageData);
         setCurrentImage(imageData);
+        
+        // After displaying the image, capture what's shown on screen and send back
+        setTimeout(() => {
+          captureScreenDisplay(imageData);
+        }, 100); // Small delay to ensure image is rendered
       });
 
       // Listen for mapping updates

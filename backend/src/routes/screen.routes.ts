@@ -10,5 +10,6 @@ router.patch('/:screenId/label', (req, res) => screenController.updateScreenLabe
 router.delete('/all', (req, res) => screenController.deleteAllScreens(req, res));
 router.delete('/:screenId', (req, res) => screenController.deleteScreen(req, res));
 router.post('/clear', (req, res) => screenActionController.clearAllScreens(req, res));
+router.post('/capture', (req, res) => screenController.saveScreenCapture(req, res));
 
 export const screenRoutes = router;
