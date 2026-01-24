@@ -275,13 +275,6 @@ function AdminPage() {
                 )}
                 <div className="flex space-x-2 mt-3">
                   <button
-                    onClick={() => handleRefreshScreen(screen.screenId)}
-                    className="text-green-400 hover:text-green-300 text-sm"
-                    title="Refresh this screen"
-                  >
-                    🔄 Refresh
-                  </button>
-                  <button
                     onClick={() => handleUpdateScreenLabel(screen.screenId)}
                     className="text-blue-400 hover:text-blue-300 text-sm"
                   >
