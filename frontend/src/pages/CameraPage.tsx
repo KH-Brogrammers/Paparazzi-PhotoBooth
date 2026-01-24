@@ -15,6 +15,7 @@ function CameraPage() {
   const [captureCounts, setCaptureCounts] = useState<Record<string, number>>({});
   const [isPrimaryCamera, setIsPrimaryCamera] = useState(false);
   const [socket, setSocket] = useState<any>(null);
+  const [showCapturedMessage, setShowCapturedMessage] = useState(false);
 
   // Load capture counts from database on mount
   useEffect(() => {
@@ -50,6 +51,8 @@ function CameraPage() {
       // Listen for capture commands from primary
       socketConnection.on('camera:execute-capture', () => {
         console.log('📸 Executing capture command');
+        setShowCapturedMessage(true);
+        setTimeout(() => setShowCapturedMessage(false), 2000);
         handleCaptureAll();
       });
 
@@ -102,6 +105,8 @@ function CameraPage() {
 
     // If primary camera, send command to all cameras
     if (isPrimaryCamera && socket) {
+      setShowCapturedMessage(true);
+      setTimeout(() => setShowCapturedMessage(false), 2000);
       socket.emit('camera:capture-all');
       return;
     }
@@ -294,6 +299,15 @@ function CameraPage() {
             />
           </svg>
         </button>
+      )}
+
+      {/* Screen Captured Message */}
+      {showCapturedMessage && (
+        <div className="fixed inset-0 flex items-center justify-center z-[9999] pointer-events-none">
+          <div className="bg-green-600 text-white px-8 py-4 rounded-xl text-2xl font-bold shadow-2xl animate-bounce">
+            📸 Screen Captured!
+          </div>
+        </div>
       )}
     </div>
   );

@@ -12,7 +12,6 @@ function ScreensPage() {
   const [error, setError] = useState<string | null>(null);
   const [isRegistered, setIsRegistered] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
-  const [showCapturedMessage, setShowCapturedMessage] = useState(false);
   const socketRef = useRef<any>(null);
 
   const captureScreenDisplay = async (originalImageData: ImageData) => {
@@ -105,10 +104,6 @@ function ScreensPage() {
       socket.on("image:captured", (imageData: ImageData) => {
         console.log("📸 Received image:", imageData);
         setCurrentImage(imageData);
-        
-        // Show "Screen Captured" message
-        setShowCapturedMessage(true);
-        setTimeout(() => setShowCapturedMessage(false), 2000);
         
         // After displaying the image, capture what's shown on screen and send back
         setTimeout(() => {
@@ -231,15 +226,6 @@ function ScreensPage() {
         </div>
       ) : (
         <LogoPlaceholder />
-      )}
-
-      {/* Screen Captured Message */}
-      {showCapturedMessage && (
-        <div className="fixed inset-0 flex items-center justify-center z-[9999] pointer-events-none">
-          <div className="bg-green-600 text-white px-8 py-4 rounded-xl text-2xl font-bold shadow-2xl animate-bounce">
-            📸 Screen Captured!
-          </div>
-        </div>
       )}
     </div>
   );
