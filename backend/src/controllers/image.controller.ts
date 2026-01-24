@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { CapturedImage } from "../models/capturedImage.model";
 import { CameraMapping } from "../models/cameraMapping.model";
+import { Screen } from "../models/screen.model";
 import { getSocketService } from "../services/socket.service";
 import { localStorageService } from "../services/localStorage.service";
 import { s3Service } from "../services/s3.service";
@@ -62,14 +63,30 @@ export class ImageController {
       // Save one image per connected mapped screen
       for (let i = 0; i < activeScreenIds.length; i++) {
         const screenNumber = i + 1;
+        const screenId = activeScreenIds[i];
         const screenImageId = `${imageId}_screen_${screenNumber}`;
+
+        // Get screen data to determine orientation
+        const screen = await Screen.findOne({ screenId });
+        let screenOrientation = '';
+        let screenResolution: { width: number; height: number } | undefined;
+        
+        if (screen?.resolution?.width && screen?.resolution?.height) {
+          screenOrientation = screen.resolution.width >= screen.resolution.height ? 'landscape' : 'portrait';
+          screenResolution = {
+            width: screen.resolution.width,
+            height: screen.resolution.height
+          };
+        }
 
         // ALWAYS save to local storage with new folder structure
         const { relativePath } = await localStorageService.saveImageWithFolder(
           imageData,
           folderName,
           screenNumber,
-          timestampNum
+          timestampNum,
+          screenOrientation,
+          screenResolution
         );
 
         const localUrl = `${process.env.BACKEND_URL || 'http://localhost:8800'}/api/images/local/${relativePath}`;
@@ -85,7 +102,9 @@ export class ImageController {
               imageData,
               folderName,
               screenNumber,
-              timestampNum
+              timestampNum,
+              screenOrientation,
+              screenResolution
             );
 
             if (s3Result) {

@@ -73,25 +73,39 @@ class LocalStorageService {
     base64Data: string,
     folderName: string,
     screenNumber: number,
-    timestamp: number
+    timestamp: number,
+    screenOrientation?: string,
+    screenResolution?: { width: number; height: number }
   ): Promise<{ localPath: string; relativePath: string }> {
     try {
-      // Create folder structure: folderName/screen_X_photo.jpg
+      // Create folder structure: folderName/screen_X_photo_orientation.jpg
       const folderPath = path.join(this.basePath, folderName);
       if (!fs.existsSync(folderPath)) {
         fs.mkdirSync(folderPath, { recursive: true });
         console.log(`📁 Created folder: ${folderPath}`);
       }
 
-      // Generate filename: screen_1_photo.jpg, screen_2_photo.jpg, etc.
-      const filename = `screen_${screenNumber}_photo.jpg`;
+      // Generate filename: screen_1_photo_landscape.jpg, screen_2_photo_portrait.jpg, etc.
+      const orientationSuffix = screenOrientation ? `_${screenOrientation}` : '';
+      const filename = `screen_${screenNumber}_photo${orientationSuffix}.jpg`;
       const filePath = path.join(folderPath, filename);
 
       // Remove data:image/xxx;base64, prefix if present
       const base64Image = base64Data.replace(/^data:image\/\w+;base64,/, '');
+      let buffer = Buffer.from(base64Image, 'base64');
 
-      // Convert base64 to buffer and save
-      const buffer = Buffer.from(base64Image, 'base64');
+      // Resize image to match screen resolution if provided
+      if (screenResolution?.width && screenResolution?.height) {
+        const sharp = require('sharp');
+        buffer = await sharp(buffer)
+          .resize(screenResolution.width, screenResolution.height, {
+            fit: 'cover',
+            position: 'center'
+          })
+          .jpeg({ quality: 90 })
+          .toBuffer();
+      }
+
       fs.writeFileSync(filePath, buffer);
 
       const relativePath = `${folderName}/${filename}`;
@@ -112,7 +126,9 @@ class LocalStorageService {
     base64Data: string,
     folderName: string,
     screenNumber: number,
-    timestamp: number
+    timestamp: number,
+    screenOrientation?: string,
+    screenResolution?: { width: number; height: number }
   ): Promise<{ s3Url: string; s3Key: string } | null> {
     try {
       // Import S3 service
@@ -123,12 +139,25 @@ class LocalStorageService {
         return null;
       }
 
-      const filename = `screen_${screenNumber}_photo.jpg`;
+      const orientationSuffix = screenOrientation ? `_${screenOrientation}` : '';
+      const filename = `screen_${screenNumber}_photo${orientationSuffix}.jpg`;
       const key = `photos/${folderName}/${filename}`;
       
       // Remove data:image/xxx;base64, prefix if present
       const base64Image = base64Data.replace(/^data:image\/\w+;base64,/, '');
-      const buffer = Buffer.from(base64Image, 'base64');
+      let buffer = Buffer.from(base64Image, 'base64');
+
+      // Resize image to match screen resolution if provided
+      if (screenResolution?.width && screenResolution?.height) {
+        const sharp = require('sharp');
+        buffer = await sharp(buffer)
+          .resize(screenResolution.width, screenResolution.height, {
+            fit: 'cover',
+            position: 'center'
+          })
+          .jpeg({ quality: 90 })
+          .toBuffer();
+      }
 
       // Upload to S3
       const s3Url = await s3Service.uploadBuffer(buffer, key, 'image/jpeg');
