@@ -12,6 +12,7 @@ function ScreensPage() {
   const [error, setError] = useState<string | null>(null);
   const [isRegistered, setIsRegistered] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   const socketRef = useRef<any>(null);
 
   const captureScreenDisplay = async (originalImageData: ImageData) => {
@@ -130,6 +131,12 @@ function ScreensPage() {
           window.location.reload();
         }, 2000);
       });
+
+      // Listen for screen details toggle
+      socket.on("screen:toggle-details", ({ show }) => {
+        console.log(`📺 Screen details toggle: ${show ? 'show' : 'hide'}`);
+        setShowDetails(show);
+      });
     } catch (err) {
       console.error("Error initializing screen:", err);
       setError("Failed to initialize screen. Please refresh the page.");
@@ -191,18 +198,20 @@ function ScreensPage() {
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-white">
-      {/* Screen Info Overlay (Hidden in production) */}
-      <div className="absolute top-4 right-4 bg-black/70 text-white px-4 py-2 rounded-lg text-sm z-50">
-        <p>
-          <strong>Screen ID:</strong> {screenId}
-        </p>
-        <p>
-          <strong>Label:</strong> {screenLabel}
-        </p>
-        <p className={`${currentImage ? "text-green-400" : "text-gray-400"}`}>
-          {currentImage ? "● Active" : "○ Waiting"}
-        </p>
-      </div>
+      {/* Screen Info Overlay - Only show when toggled */}
+      {showDetails && (
+        <div className="absolute top-4 right-4 bg-black/70 text-white px-4 py-2 rounded-lg text-sm z-50">
+          <p>
+            <strong>Screen ID:</strong> {screenId}
+          </p>
+          <p>
+            <strong>Label:</strong> {screenLabel}
+          </p>
+          <p className={`${currentImage ? "text-green-400" : "text-gray-400"}`}>
+            {currentImage ? "● Active" : "○ Waiting"}
+          </p>
+        </div>
+      )}
 
       {/* Display captured image or logo */}
       {currentImage ? (
@@ -213,16 +222,18 @@ function ScreensPage() {
             className="max-w-full max-h-full object-cover origin-top"
           />
 
-          {/* Image Info */}
-          <div className="absolute bottom-4 left-4 bg-black/70 text-white px-4 py-2 rounded-lg text-sm">
-            <p>
-              <strong>Camera:</strong> {currentImage.cameraLabel}
-            </p>
-            <p>
-              <strong>Time:</strong>{" "}
-              {new Date(currentImage.timestamp).toLocaleTimeString()}
-            </p>
-          </div>
+          {/* Image Info - Only show when toggled */}
+          {showDetails && (
+            <div className="absolute bottom-4 left-4 bg-black/70 text-white px-4 py-2 rounded-lg text-sm">
+              <p>
+                <strong>Camera:</strong> {currentImage.cameraLabel}
+              </p>
+              <p>
+                <strong>Time:</strong>{" "}
+                {new Date(currentImage.timestamp).toLocaleTimeString()}
+              </p>
+            </div>
+          )}
         </div>
       ) : (
         <LogoPlaceholder />

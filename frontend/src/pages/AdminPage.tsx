@@ -10,6 +10,7 @@ function AdminPage() {
   const [selectedMappings, setSelectedMappings] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showScreenDetails, setShowScreenDetails] = useState(false);
 
   
   const loadData = async () => {
@@ -177,6 +178,16 @@ function AdminPage() {
     window.location.reload();
   };
 
+  const handleToggleScreenDetails = () => {
+    const newState = !showScreenDetails;
+    setShowScreenDetails(newState);
+    
+    // Emit to all screens via socket
+    const socket = socketClient.connect();
+    socket.emit('admin:toggle-screen-details', { show: newState });
+    console.log(`📺 Screen details ${newState ? 'shown' : 'hidden'} on all screens`);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
@@ -203,6 +214,16 @@ function AdminPage() {
               All Screens ({screens.length})
             </h2>
             <div className="flex space-x-3">
+              <button
+                onClick={handleToggleScreenDetails}
+                className={`px-4 py-2 font-semibold rounded-lg transition-colors ${
+                  showScreenDetails 
+                    ? 'bg-red-600 hover:bg-red-700 text-white' 
+                    : 'bg-green-600 hover:bg-green-700 text-white'
+                }`}
+              >
+                {showScreenDetails ? '👁️‍🗨️ Hide Screen Details' : '👁️ Show Screen Details'}
+              </button>
               <button
                 onClick={handleHardRefresh}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors"

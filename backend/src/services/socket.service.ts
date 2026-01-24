@@ -92,6 +92,13 @@ export class SocketService {
         socket.broadcast.emit('admin:request-cameras');
       });
 
+      // Handle admin toggle screen details
+      socket.on('admin:toggle-screen-details', ({ show }) => {
+        console.log(`📺 Admin toggling screen details: ${show ? 'show' : 'hide'}`);
+        // Broadcast to all screens
+        this.io.emit('screen:toggle-details', { show });
+      });
+
       // Handle screen refresh request
       socket.on('screen:refresh', ({ screenId }) => {
         console.log(`🔄 Refresh request for screen: ${screenId}`);
