@@ -121,6 +121,15 @@ function ScreensPage() {
         console.log("🧹 Clearing screen display");
         setCurrentImage(null);
       });
+
+      // Listen for screen refresh event
+      socket.on("screen:refresh", () => {
+        console.log("🔄 Screen refresh requested - reloading page");
+        alert("Screen refresh requested - page will reload in 2 seconds");
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      });
     } catch (err) {
       console.error("Error initializing screen:", err);
       setError("Failed to initialize screen. Please refresh the page.");

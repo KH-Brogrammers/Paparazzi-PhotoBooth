@@ -53,6 +53,14 @@ export class SocketService {
         socket.broadcast.emit('admin:request-cameras');
       });
 
+      // Handle screen refresh request
+      socket.on('screen:refresh', ({ screenId }) => {
+        console.log(`🔄 Refresh request for screen: ${screenId}`);
+        // Send refresh signal to specific screen
+        this.io.to(`screen:${screenId}`).emit('screen:refresh');
+        console.log(`🔄 Refresh signal sent to screen room: screen:${screenId}`);
+      });
+
       // Handle disconnection
       socket.on('disconnect', () => {
         console.log(`🔌 Client disconnected: ${socket.id}`);

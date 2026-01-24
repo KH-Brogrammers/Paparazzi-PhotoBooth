@@ -97,6 +97,21 @@ function AdminPage() {
     });
   };
 
+  const handleRefreshScreen = async (screenId: string) => {
+    try {
+      // Emit refresh event to specific screen via socket
+      const socket = socketClient.connect();
+      socket.emit('screen:refresh', { screenId });
+      console.log(`🔄 Refresh signal sent to screen: ${screenId}`);
+      
+      // Also show visual feedback
+      alert(`Refresh signal sent to screen: ${screenId.substring(0, 20)}...`);
+    } catch (error) {
+      console.error('Error refreshing screen:', error);
+      alert('Failed to send refresh signal');
+    }
+  };
+
   const handleSaveMappings = async () => {
     try {
       setSaving(true);
@@ -238,6 +253,13 @@ function AdminPage() {
                   </p>
                 )}
                 <div className="flex space-x-2 mt-3">
+                  <button
+                    onClick={() => handleRefreshScreen(screen.screenId)}
+                    className="text-green-400 hover:text-green-300 text-sm"
+                    title="Refresh this screen"
+                  >
+                    🔄 Refresh
+                  </button>
                   <button
                     onClick={() => handleUpdateScreenLabel(screen.screenId)}
                     className="text-blue-400 hover:text-blue-300 text-sm"
