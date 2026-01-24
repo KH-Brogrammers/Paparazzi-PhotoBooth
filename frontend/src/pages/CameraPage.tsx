@@ -57,8 +57,12 @@ function CameraPage() {
   // Listen for global camera switch events
   useEffect(() => {
     const handleSwitchCamera = (event: CustomEvent) => {
+      console.log('🔄 Global switch camera event received');
       if (canSwitchCamera) {
+        console.log('🔄 Switching camera...');
         switchCamera();
+      } else {
+        console.log('⚠️ Cannot switch camera - only one available');
       }
     };
 

@@ -29,14 +29,21 @@ function GlobalCameraSwitchButton() {
   }, []);
 
   const switchCamera = () => {
+    console.log('🔄 Global switch button clicked');
+    console.log('📷 Available cameras:', cameras.length);
+    
     if (cameras.length > 1) {
       const nextIndex = (currentCameraIndex + 1) % cameras.length;
       setCurrentCameraIndex(nextIndex);
+      
+      console.log('🔄 Switching from camera', currentCameraIndex, 'to camera', nextIndex);
       
       // Emit event to camera page to switch camera
       window.dispatchEvent(new CustomEvent('switch-camera', { 
         detail: { cameraIndex: nextIndex } 
       }));
+    } else {
+      console.log('⚠️ Only one camera available, cannot switch');
     }
   };
 

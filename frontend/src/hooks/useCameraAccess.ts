@@ -61,6 +61,32 @@ export function useCameraAccess() {
 
       console.log(`Found ${videoDevices.length} camera(s):`, videoDevices);
 
+      // On mobile, try to detect front and rear cameras specifically
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
+      if (isMobile) {
+        console.log('📱 Mobile detected - forcing front and rear camera detection');
+        
+        // Always create both front and rear camera options for mobile
+        const mobileDevices = [
+          {
+            deviceId: 'front-camera',
+            label: 'Front Camera',
+            kind: 'videoinput' as MediaDeviceKind,
+            groupId: 'mobile-cameras'
+          },
+          {
+            deviceId: 'rear-camera', 
+            label: 'Rear Camera',
+            kind: 'videoinput' as MediaDeviceKind,
+            groupId: 'mobile-cameras'
+          }
+        ];
+
+        videoDevices = mobileDevices;
+        console.log('✅ Mobile cameras forced: Front + Rear');
+      }
+
       // Initialize cameras with streams one by one
       const initializedCameras: Camera[] = [];
 
@@ -68,13 +94,34 @@ export function useCameraAccess() {
         try {
           console.log(`Initializing camera: ${device.label || device.deviceId}`);
           
-          const constraints = {
-            video: {
-              deviceId: device.deviceId ? { exact: device.deviceId } : undefined,
-              width: { ideal: 1920 },
-              height: { ideal: 1080 },
-            },
-          };
+          let constraints;
+          
+          // Use facingMode for mobile virtual cameras
+          if (device.deviceId === 'front-camera') {
+            constraints = {
+              video: {
+                facingMode: 'user',
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+              },
+            };
+          } else if (device.deviceId === 'rear-camera') {
+            constraints = {
+              video: {
+                facingMode: 'environment',
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+              },
+            };
+          } else {
+            constraints = {
+              video: {
+                deviceId: device.deviceId ? { exact: device.deviceId } : undefined,
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+              },
+            };
+          }
 
           const stream = await navigator.mediaDevices.getUserMedia(constraints);
           streamsRef.current.set(device.deviceId, stream);
@@ -139,9 +186,13 @@ export function useCameraAccess() {
   };
 
   const switchCamera = () => {
+    console.log('🔄 switchCamera called, current cameras:', cameras.length);
     if (cameras.length > 1) {
       const nextIndex = (currentCameraIndex + 1) % cameras.length;
+      console.log('🔄 Switching from index', currentCameraIndex, 'to', nextIndex);
       setCurrentCameraIndex(nextIndex);
+    } else {
+      console.log('⚠️ Cannot switch - only', cameras.length, 'camera(s) available');
     }
   };
 
