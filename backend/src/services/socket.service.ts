@@ -4,6 +4,8 @@ import { Server as HTTPServer } from 'http';
 export class SocketService {
   private io: SocketServer;
   private screenSockets: Map<string, string>; // screenId -> socketId
+  private primaryCameraSocket: string | null = null; // Track primary camera
+  private cameraSockets: Set<string> = new Set(); // Track all camera sockets
 
   constructor(httpServer: HTTPServer) {
     this.io = new SocketServer(httpServer, {
@@ -33,10 +35,39 @@ export class SocketService {
         this.io.emit('screen:registered', { screenId });
       });
 
-      // Camera registration
+      // Camera registration - determine primary/secondary
       socket.on('register:camera', (cameraId: string) => {
+        this.cameraSockets.add(socket.id);
         socket.join(`camera:${cameraId}`);
-        console.log(`📷 Camera registered: ${cameraId} (${socket.id})`);
+        
+        // Set as primary if no primary exists
+        const isPrimary = !this.primaryCameraSocket;
+        if (isPrimary) {
+          this.primaryCameraSocket = socket.id;
+        }
+        
+        console.log(`📷 Camera registered: ${cameraId} (${socket.id}) - ${isPrimary ? 'PRIMARY' : 'SECONDARY'}`);
+        
+        // Send primary/secondary status to camera
+        socket.emit('camera:status', { isPrimary });
+      });
+
+      // Handle capture command from primary camera
+      socket.on('camera:capture-all', () => {
+        if (socket.id === this.primaryCameraSocket) {
+          console.log('📸 Capture all command from primary camera');
+          // Broadcast to all cameras including primary
+          this.io.emit('camera:execute-capture');
+        }
+      });
+
+      // Handle refresh command from primary camera
+      socket.on('camera:refresh-all', () => {
+        if (socket.id === this.primaryCameraSocket) {
+          console.log('🔄 Refresh all command from primary camera');
+          // Broadcast to all cameras including primary
+          this.io.emit('camera:execute-refresh');
+        }
       });
 
       // Handle camera registration from devices
@@ -64,6 +95,25 @@ export class SocketService {
       // Handle disconnection
       socket.on('disconnect', () => {
         console.log(`🔌 Client disconnected: ${socket.id}`);
+        
+        // Handle camera disconnection
+        if (this.cameraSockets.has(socket.id)) {
+          this.cameraSockets.delete(socket.id);
+          
+          // If primary camera disconnected, assign new primary
+          if (socket.id === this.primaryCameraSocket) {
+            this.primaryCameraSocket = null;
+            
+            // Assign new primary from remaining cameras
+            const remainingCameras = Array.from(this.cameraSockets);
+            if (remainingCameras.length > 0) {
+              this.primaryCameraSocket = remainingCameras[0];
+              // Notify new primary
+              this.io.to(this.primaryCameraSocket).emit('camera:status', { isPrimary: true });
+              console.log(`📷 New primary camera assigned: ${this.primaryCameraSocket}`);
+            }
+          }
+        }
         
         // Remove screen from map and notify admin panels
         for (const [screenId, socketId] of this.screenSockets.entries()) {

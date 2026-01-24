@@ -13,6 +13,8 @@ function CameraPage() {
   const { captureImage, isCapturing } = useImageCapture();
   const cameraRefs = useRef<(CameraCardRef | null)[]>([]);
   const [captureCounts, setCaptureCounts] = useState<Record<string, number>>({});
+  const [isPrimaryCamera, setIsPrimaryCamera] = useState(false);
+  const [socket, setSocket] = useState<any>(null);
 
   // Load capture counts from database on mount
   useEffect(() => {
@@ -30,17 +32,39 @@ function CameraPage() {
     loadCaptureCounts();
   }, []);
 
-  // Register cameras with admin panel via socket
+  // Register cameras and establish primary/secondary status
   useEffect(() => {
     if (cameras.length > 0) {
-      const socket = socketClient.connect();
+      const socketConnection = socketClient.connect();
+      setSocket(socketConnection);
+      
+      // Register as camera and get primary/secondary status
+      socketConnection.emit('register:camera', 'camera-device');
+      
+      // Listen for primary/secondary status
+      socketConnection.on('camera:status', ({ isPrimary }: { isPrimary: boolean }) => {
+        setIsPrimaryCamera(isPrimary);
+        console.log(`📷 Camera status: ${isPrimary ? 'PRIMARY' : 'SECONDARY'}`);
+      });
+
+      // Listen for capture commands from primary
+      socketConnection.on('camera:execute-capture', () => {
+        console.log('📸 Executing capture command');
+        handleCaptureAll();
+      });
+
+      // Listen for refresh commands from primary
+      socketConnection.on('camera:execute-refresh', () => {
+        console.log('🔄 Executing refresh command');
+        handleClearScreens();
+      });
       
       // Register cameras with admin panel
-      socket.emit('cameras:register', cameras);
+      socketConnection.emit('cameras:register', cameras);
       
       // Listen for admin requests for camera info
-      socket.on('admin:request-cameras', () => {
-        socket.emit('cameras:register', cameras);
+      socketConnection.on('admin:request-cameras', () => {
+        socketConnection.emit('cameras:register', cameras);
       });
 
       // Emit cameras detected event for global button
@@ -49,7 +73,7 @@ function CameraPage() {
       }));
       
       return () => {
-        socket.disconnect();
+        socketConnection.disconnect();
       };
     }
   }, [cameras]);
@@ -76,10 +100,15 @@ function CameraPage() {
   const handleCaptureAll = async () => {
     if (isCapturing || !currentCamera) return;
 
-    // Show flash on current camera
+    // If primary camera, send command to all cameras
+    if (isPrimaryCamera && socket) {
+      socket.emit('camera:capture-all');
+      return;
+    }
+
+    // Execute capture (for both primary and secondary when commanded)
     cameraRefs.current[0]?.showFlash();
 
-    // Capture from current camera
     try {
       const ref = cameraRefs.current[0];
       if (!ref) return;
@@ -94,7 +123,6 @@ function CameraPage() {
       );
 
       if (result) {
-        // Update capture count for this camera
         setCaptureCounts(prev => ({
           ...prev,
           [result.cameraId]: (prev[result.cameraId] || 0) + 1
@@ -106,6 +134,13 @@ function CameraPage() {
   };
 
   const handleClearScreens = async () => {
+    // If primary camera, send command to all cameras
+    if (isPrimaryCamera && socket) {
+      socket.emit('camera:refresh-all');
+      return;
+    }
+
+    // Execute refresh (for both primary and secondary when commanded)
     try {
       await screenApi.clearAll();
     } catch (error) {
@@ -126,13 +161,25 @@ function CameraPage() {
       {/* Header - Hidden on mobile */}
       <header className="mb-8 hidden md:block">
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-4xl font-bold text-white mb-2">
-            Photo Shoot Studio
-          </h1>
-          <p className="text-gray-400 text-lg">
-            {cameras.length} {cameras.length === 1 ? 'camera' : 'cameras'}{' '}
-            detected and online
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-4xl font-bold text-white mb-2">
+                Photo Shoot Studio
+              </h1>
+              <p className="text-gray-400 text-lg">
+                {cameras.length} {cameras.length === 1 ? 'camera' : 'cameras'}{' '}
+                detected and online
+              </p>
+            </div>
+            {/* Primary/Secondary Status Indicator */}
+            <div className={`px-4 py-2 rounded-full text-sm font-bold ${
+              isPrimaryCamera 
+                ? 'bg-green-600 text-white' 
+                : 'bg-gray-600 text-gray-300'
+            }`}>
+              {isPrimaryCamera ? '🎯 PRIMARY CAMERA' : '📷 SECONDARY CAMERA'}
+            </div>
+          </div>
         </div>
       </header>
 
@@ -168,82 +215,86 @@ function CameraPage() {
               captureCounts={captureCounts}
             />
             
-            {/* Global Capture Button */}
-            <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50">
-              <button
-                onClick={handleCaptureAll}
-                disabled={isCapturing}
-                className={`
-                  px-8 py-4 rounded-full font-bold text-white text-lg
-                  transition-all duration-200 transform
-                  ${
-                    isCapturing
-                      ? 'bg-gray-600 cursor-not-allowed'
-                      : 'bg-blue-600 hover:bg-blue-700 hover:scale-110 active:scale-95'
-                  }
-                  disabled:opacity-50 disabled:cursor-not-allowed
-                  shadow-2xl hover:shadow-blue-500/50
-                  flex items-center space-x-3
-                `}
-              >
-                <svg
-                  className={`w-8 h-8 ${isCapturing ? 'animate-spin' : ''}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+            {/* Global Capture Button - Only show for primary camera */}
+            {isPrimaryCamera && (
+              <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50">
+                <button
+                  onClick={handleCaptureAll}
+                  disabled={isCapturing}
+                  className={`
+                    px-8 py-4 rounded-full font-bold text-white text-lg
+                    transition-all duration-200 transform
+                    ${
+                      isCapturing
+                        ? 'bg-gray-600 cursor-not-allowed'
+                        : 'bg-blue-600 hover:bg-blue-700 hover:scale-110 active:scale-95'
+                    }
+                    disabled:opacity-50 disabled:cursor-not-allowed
+                    shadow-2xl hover:shadow-blue-500/50
+                    flex items-center space-x-3
+                  `}
                 >
-                  {isCapturing ? (
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                    />
-                  ) : (
-                    <>
+                  <svg
+                    className={`w-8 h-8 ${isCapturing ? 'animate-spin' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    {isCapturing ? (
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                       />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
-                    </>
-                  )}
-                </svg>
-                <span>{isCapturing ? 'Capturing...' : `Capture All Cameras (${cameras.length})`}</span>
-              </button>
-            </div>
+                    ) : (
+                      <>
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                      </>
+                    )}
+                  </svg>
+                  <span>{isCapturing ? 'Capturing...' : `Capture All Cameras (${cameras.length})`}</span>
+                </button>
+              </div>
+            )}
           </>
         )}
       </main>
 
-      {/* Refresh button - Global */}
-      <button
-        onClick={handleClearScreens}
-        className="fixed bottom-4 right-4 p-4 bg-purple-600 hover:bg-purple-700 text-white rounded-full shadow-lg transition-colors z-50"
-        title="Clear all screens"
-      >
-        <svg 
-          xmlns="http://www.w3.org/2000/svg" 
-          className="h-6 w-6" 
-          fill="none" 
-          viewBox="0 0 24 24" 
-          stroke="currentColor"
+      {/* Refresh button - Only show for primary camera */}
+      {isPrimaryCamera && (
+        <button
+          onClick={handleClearScreens}
+          className="fixed bottom-4 right-4 p-4 bg-purple-600 hover:bg-purple-700 text-white rounded-full shadow-lg transition-colors z-50"
+          title="Clear all screens"
         >
-          <path 
-            strokeLinecap="round" 
-            strokeLinejoin="round" 
-            strokeWidth={2} 
-            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" 
-          />
-        </svg>
-      </button>
+          <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            className="h-6 w-6" 
+            fill="none" 
+            viewBox="0 0 24 24" 
+            stroke="currentColor"
+          >
+            <path 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+              strokeWidth={2} 
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" 
+            />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }
