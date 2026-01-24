@@ -99,8 +99,9 @@ class LocalStorageService {
         const sharp = require('sharp');
         buffer = await sharp(buffer)
           .resize(screenResolution.width, screenResolution.height, {
-            fit: 'cover',
-            position: 'center'
+            fit: 'contain',
+            position: 'center',
+            background: { r: 255, g: 255, b: 255, alpha: 1 }
           })
           .jpeg({ quality: 90 })
           .toBuffer();
@@ -152,8 +153,9 @@ class LocalStorageService {
         const sharp = require('sharp');
         buffer = await sharp(buffer)
           .resize(screenResolution.width, screenResolution.height, {
-            fit: 'cover',
-            position: 'center'
+            fit: 'contain',
+            position: 'center',
+            background: { r: 255, g: 255, b: 255, alpha: 1 }
           })
           .jpeg({ quality: 90 })
           .toBuffer();
