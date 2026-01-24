@@ -73,8 +73,16 @@ export class SocketService {
       // Handle camera registration from devices
       socket.on('cameras:register', (cameras: any[]) => {
         console.log(`📷 Cameras registered from device:`, cameras);
+        
+        // Add role information to cameras
+        const camerasWithRole = cameras.map(camera => ({
+          ...camera,
+          role: socket.id === this.primaryCameraSocket ? 'PRIMARY' : 'SECONDARY',
+          socketId: socket.id
+        }));
+        
         // Broadcast to admin panels
-        this.io.emit('cameras:registered', cameras);
+        this.io.emit('cameras:registered', camerasWithRole);
       });
 
       // Handle admin request for cameras

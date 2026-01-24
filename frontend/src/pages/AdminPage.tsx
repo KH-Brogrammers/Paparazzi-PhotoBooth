@@ -310,9 +310,18 @@ function AdminPage() {
                   key={camera.deviceId}
                   className="bg-gray-800 border-2 border-gray-700 rounded-lg p-6"
                 >
-                  <h3 className="text-white font-semibold text-xl mb-4">
-                    📷 {camera.label}
-                  </h3>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-white font-semibold text-xl">
+                      📷 {camera.label}
+                    </h3>
+                    <span className={`px-3 py-1 text-sm font-bold rounded-full ${
+                      camera.role === 'PRIMARY' 
+                        ? 'bg-green-600 text-white' 
+                        : 'bg-gray-600 text-gray-300'
+                    }`}>
+                      {camera.role === 'PRIMARY' ? '🎯 PRIMARY' : '📷 SECONDARY'}
+                    </span>
+                  </div>
                   <p className="text-gray-400 text-sm mb-4">
                     Select which screens should display images from this camera:
                   </p>
