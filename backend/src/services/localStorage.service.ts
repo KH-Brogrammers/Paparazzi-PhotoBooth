@@ -97,8 +97,29 @@ class LocalStorageService {
       // Resize image to match screen resolution if provided
       if (screenResolution?.width && screenResolution?.height) {
         const sharp = require('sharp');
+        
+        // Get image metadata to detect actual photo orientation
+        const imageInfo = await sharp(buffer).metadata();
+        const photoWidth = imageInfo.width || 0;
+        const photoHeight = imageInfo.height || 0;
+        
+        // Determine if photo is landscape or portrait
+        const isPhotoLandscape = photoWidth > photoHeight;
+        
+        // Use photo orientation to determine target dimensions
+        let targetWidth, targetHeight;
+        if (isPhotoLandscape) {
+          // Photo is landscape, use landscape dimensions
+          targetWidth = Math.max(screenResolution.width, screenResolution.height);
+          targetHeight = Math.min(screenResolution.width, screenResolution.height);
+        } else {
+          // Photo is portrait, use portrait dimensions  
+          targetWidth = Math.min(screenResolution.width, screenResolution.height);
+          targetHeight = Math.max(screenResolution.width, screenResolution.height);
+        }
+        
         buffer = await sharp(buffer)
-          .resize(screenResolution.width, screenResolution.height, {
+          .resize(targetWidth, targetHeight, {
             fit: 'contain',
             position: 'center',
             background: { r: 255, g: 255, b: 255, alpha: 1 }
@@ -151,8 +172,29 @@ class LocalStorageService {
       // Resize image to match screen resolution if provided
       if (screenResolution?.width && screenResolution?.height) {
         const sharp = require('sharp');
+        
+        // Get image metadata to detect actual photo orientation
+        const imageInfo = await sharp(buffer).metadata();
+        const photoWidth = imageInfo.width || 0;
+        const photoHeight = imageInfo.height || 0;
+        
+        // Determine if photo is landscape or portrait
+        const isPhotoLandscape = photoWidth > photoHeight;
+        
+        // Use photo orientation to determine target dimensions
+        let targetWidth, targetHeight;
+        if (isPhotoLandscape) {
+          // Photo is landscape, use landscape dimensions
+          targetWidth = Math.max(screenResolution.width, screenResolution.height);
+          targetHeight = Math.min(screenResolution.width, screenResolution.height);
+        } else {
+          // Photo is portrait, use portrait dimensions  
+          targetWidth = Math.min(screenResolution.width, screenResolution.height);
+          targetHeight = Math.max(screenResolution.width, screenResolution.height);
+        }
+        
         buffer = await sharp(buffer)
-          .resize(screenResolution.width, screenResolution.height, {
+          .resize(targetWidth, targetHeight, {
             fit: 'contain',
             position: 'center',
             background: { r: 255, g: 255, b: 255, alpha: 1 }
