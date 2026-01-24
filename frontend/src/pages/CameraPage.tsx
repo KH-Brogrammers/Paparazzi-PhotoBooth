@@ -56,9 +56,9 @@ function CameraPage() {
 
   // Listen for global camera switch events
   useEffect(() => {
-    const handleSwitchCamera = (event: CustomEvent) => {
+    const handleSwitchCamera = async (event: CustomEvent) => {
       if (canSwitchCamera) {
-        switchCamera();
+        await switchCamera();
       }
     };
 

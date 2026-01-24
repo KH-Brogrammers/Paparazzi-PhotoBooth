@@ -61,10 +61,22 @@ export function useCameraAccess() {
 
       console.log(`Found ${videoDevices.length} camera(s):`, videoDevices);
 
-      // Initialize cameras with streams one by one
+      // On mobile, only initialize the first camera (usually back camera)
+      // Desktop can handle multiple streams
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const camerasToInitialize = isMobile ? [videoDevices[0]] : videoDevices;
+      
+      // Store all available devices for switching
+      const allCameras: Camera[] = videoDevices.map((device, index) => ({
+        deviceId: device.deviceId,
+        label: device.label || `Camera ${index + 1}`,
+        stream: null as any, // Will be populated on demand
+      }));
+
+      // Initialize streams for selected cameras
       const initializedCameras: Camera[] = [];
 
-      for (const device of videoDevices) {
+      for (const device of camerasToInitialize) {
         try {
           console.log(`Initializing camera: ${device.label || device.deviceId}`);
           
@@ -73,11 +85,17 @@ export function useCameraAccess() {
               deviceId: device.deviceId ? { exact: device.deviceId } : undefined,
               width: { ideal: 1920 },
               height: { ideal: 1080 },
+              facingMode: isMobile ? { ideal: 'environment' } : undefined, // Prefer back camera on mobile
             },
           };
 
           const stream = await navigator.mediaDevices.getUserMedia(constraints);
           streamsRef.current.set(device.deviceId, stream);
+
+          const cameraIndex = allCameras.findIndex(cam => cam.deviceId === device.deviceId);
+          if (cameraIndex !== -1) {
+            allCameras[cameraIndex].stream = stream;
+          }
 
           initializedCameras.push({
             deviceId: device.deviceId,
@@ -90,12 +108,15 @@ export function useCameraAccess() {
           console.error(`Failed to initialize camera ${device.label || device.deviceId}:`, err);
         }
       }
+      
+      // Use all cameras for desktop, or the list with placeholders for mobile
+      const finalCameras = isMobile ? allCameras : initializedCameras;
 
       if (initializedCameras.length === 0) {
         throw new Error('Failed to initialize any cameras');
       }
 
-      setCameras(initializedCameras);
+      setCameras(isMobile ? allCameras : initializedCameras);
       setIsLoading(false);
     } catch (err: any) {
       console.error('Error accessing cameras:', err);
@@ -138,11 +159,55 @@ export function useCameraAccess() {
     }
   };
 
-  const switchCamera = () => {
-    if (cameras.length > 1) {
-      const nextIndex = (currentCameraIndex + 1) % cameras.length;
-      setCurrentCameraIndex(nextIndex);
+  const switchCamera = async () => {
+    if (cameras.length <= 1) return;
+
+    const nextIndex = (currentCameraIndex + 1) % cameras.length;
+    const nextCamera = cameras[nextIndex];
+
+    // If the next camera doesn't have a stream yet, initialize it
+    if (!nextCamera.stream) {
+      try {
+        console.log(`Initializing camera on switch: ${nextCamera.label}`);
+        
+        const constraints = {
+          video: {
+            deviceId: { exact: nextCamera.deviceId },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        
+        // Stop the current camera stream to free resources (mobile)
+        const currentCamera = cameras[currentCameraIndex];
+        if (currentCamera && currentCamera.stream) {
+          currentCamera.stream.getTracks().forEach(track => track.stop());
+          streamsRef.current.delete(currentCamera.deviceId);
+        }
+
+        streamsRef.current.set(nextCamera.deviceId, stream);
+
+        // Update the cameras array with the new stream
+        setCameras(prev =>
+          prev.map(cam =>
+            cam.deviceId === nextCamera.deviceId
+              ? { ...cam, stream }
+              : cam.deviceId === currentCamera.deviceId
+              ? { ...cam, stream: null as any }
+              : cam
+          )
+        );
+        
+        console.log(`Successfully switched to: ${nextCamera.label}`);
+      } catch (err) {
+        console.error('Error switching camera:', err);
+        return; // Don't switch if initialization failed
+      }
     }
+
+    setCurrentCameraIndex(nextIndex);
   };
 
   const getCurrentCamera = () => {

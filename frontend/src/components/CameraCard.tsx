@@ -17,10 +17,36 @@ const CameraCard = forwardRef<CameraCardRef, CameraCardProps>(({ camera, capture
   const [showFlash, setShowFlash] = useState(false);
 
   useEffect(() => {
-    if (videoRef.current && camera.stream) {
-      videoRef.current.srcObject = camera.stream;
+    const videoElement = videoRef.current;
+    if (!videoElement) return;
+
+    // Set the new stream
+    if (camera.stream) {
+      // Clear any existing stream first
+      if (videoElement.srcObject) {
+        const oldStream = videoElement.srcObject as MediaStream;
+        if (oldStream !== camera.stream) {
+          oldStream.getTracks().forEach(track => {
+            // Don't stop tracks here, they're managed by the hook
+          });
+        }
+      }
+      
+      videoElement.srcObject = camera.stream;
+      
+      // Ensure video plays
+      videoElement.play().catch(err => {
+        console.error('Error playing video:', err);
+      });
     }
-  }, [camera.stream]);
+
+    return () => {
+      // Cleanup when component unmounts
+      if (videoElement.srcObject) {
+        videoElement.srcObject = null;
+      }
+    };
+  }, [camera.stream, camera.deviceId]);
 
   useImperativeHandle(ref, () => ({
     capture: async () => {
