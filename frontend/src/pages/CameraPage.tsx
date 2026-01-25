@@ -320,7 +320,7 @@ function CameraPage() {
                       </>
                     )}
                   </svg>
-                  <span>{isCapturing ? 'Capturing...' : `Capture`}</span>
+                  {/* <span>{isCapturing ? 'Capturing...' : `Capture`}</span> */}
                 </button>
               </div>
             )}
