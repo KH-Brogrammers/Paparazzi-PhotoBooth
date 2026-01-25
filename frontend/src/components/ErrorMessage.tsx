@@ -4,7 +4,7 @@ interface ErrorMessageProps {
 
 function ErrorMessage({ message }: ErrorMessageProps) {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
+    <div className="flex flex-col items-center justify-center h-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
       <div className="bg-red-500/10 border-2 border-red-500 rounded-xl p-8 max-w-md">
         <div className="flex items-center justify-center w-16 h-16 bg-red-500 rounded-full mx-auto mb-4">
           <svg
