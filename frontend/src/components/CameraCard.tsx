@@ -11,6 +11,7 @@ import CaptureFlash from "./CaptureFlash";
 interface CameraCardProps {
   camera: Camera;
   captureCount: number;
+  showCameraDetails?: boolean;
 }
 
 export interface CameraCardRef {
@@ -23,7 +24,7 @@ export interface CameraCardRef {
 }
 
 const CameraCard = forwardRef<CameraCardRef, CameraCardProps>(
-  ({ camera, captureCount }, ref) => {
+  ({ camera, captureCount, showCameraDetails = false }, ref) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [showFlash, setShowFlash] = useState(false);
 
@@ -52,23 +53,25 @@ const CameraCard = forwardRef<CameraCardRef, CameraCardProps>(
     return (
       <div className="relative w-full h-full bg-white overflow-hidden flex justify-center flex-col min-h-0">
         {/* Camera Label */}
-        <div className="absolute left-0 p-4 right-0 bottom-0 z-10 ">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-white font-semibold text-lg truncate">
-                {camera.label}
-              </h3>
-              <p className="text-gray-300 text-sm">
-                {camera.deviceId.substring(0, 8)}...
-              </p>
-            </div>
+        {showCameraDetails && (
+          <div className="absolute left-0 p-4 right-0 bottom-0 z-10 ">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-white font-semibold text-lg truncate">
+                  {camera.label}
+                </h3>
+                <p className="text-gray-300 text-sm">
+                  {camera.deviceId.substring(0, 8)}...
+                </p>
+              </div>
             {/* {captureCount > 0 && (
             <div className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium">
               {captureCount} captured
             </div>
           )} */}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Video Preview */}
         <div className="relative h-full w-full bg-white flex justify-center items-center">

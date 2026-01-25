@@ -6,10 +6,11 @@ interface CameraGridProps {
   cameras: Camera[];
   cameraRefs: React.MutableRefObject<(CameraCardRef | null)[]>;
   captureCounts: Record<string, number>;
+  showCameraDetails?: boolean;
 }
 
 const CameraGrid = forwardRef<HTMLDivElement, CameraGridProps>(
-  ({ cameras, cameraRefs, captureCounts }, ref) => {
+  ({ cameras, cameraRefs, captureCounts, showCameraDetails = false }, ref) => {
     const getGridClass = () => {
       const count = cameras.length;
       if (count === 1) return "grid-cols-1";
@@ -31,6 +32,7 @@ const CameraGrid = forwardRef<HTMLDivElement, CameraGridProps>(
             ref={(el) => (cameraRefs.current[index] = el)}
             camera={camera}
             captureCount={captureCounts[camera.deviceId] || 0}
+            showCameraDetails={showCameraDetails}
           />
         ))}
       </div>

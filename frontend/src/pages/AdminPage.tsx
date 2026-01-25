@@ -13,6 +13,7 @@ function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showScreenDetails, setShowScreenDetails] = useState(false);
+  const [showCameraDetails, setShowCameraDetails] = useState(false);
 
   const loadData = async () => {
     try {
@@ -305,6 +306,18 @@ function AdminPage() {
     );
   };
 
+  const handleToggleCameraDetails = () => {
+    const newState = !showCameraDetails;
+    setShowCameraDetails(newState);
+
+    // Emit to camera page via socket
+    const socket = socketClient.connect();
+    socket.emit("admin:toggle-camera-details", { show: newState });
+    console.log(
+      `📷 Camera details ${newState ? "shown" : "hidden"} on camera page`,
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex w-full items-center justify-center h-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
@@ -437,22 +450,36 @@ function AdminPage() {
             <h2 className="text-2xl font-bold text-white">
               Camera to Screen Mapping
             </h2>
-            <button
-              onClick={() => {
-                setAllCameras([]);
-                const socket = socketClient.connect();
-                socket.emit("admin:request-cameras");
-              }}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors mr-3"
-            >
-              🔄 Refresh Cameras
-            </button>
-            <button
-              onClick={handleDeleteOldCameras}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-            >
-              🗑️ Clean Old Cameras
-            </button>
+            <div className="flex space-x-3">
+              <button
+                onClick={handleToggleCameraDetails}
+                className={`px-4 py-2 font-semibold rounded-lg transition-colors ${
+                  showCameraDetails
+                    ? "bg-red-600 hover:bg-red-700 text-white"
+                    : "bg-green-600 hover:bg-green-700 text-white"
+                }`}
+              >
+                {showCameraDetails
+                  ? "👁️🗨️ Hide Camera Details"
+                  : "👁️ Show Camera Details"}
+              </button>
+              <button
+                onClick={() => {
+                  setAllCameras([]);
+                  const socket = socketClient.connect();
+                  socket.emit("admin:request-cameras");
+                }}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+              >
+                🔄 Refresh Cameras
+              </button>
+              <button
+                onClick={handleDeleteOldCameras}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+              >
+                🗑️ Clean Old Cameras
+              </button>
+            </div>
           </div>
 
           {allCameras.length === 0 ? (

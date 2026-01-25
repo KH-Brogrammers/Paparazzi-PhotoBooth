@@ -28,6 +28,7 @@ function CameraPage() {
   const [totalCameraCount, setTotalCameraCount] = useState(1);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [showQrCode, setShowQrCode] = useState(false);
+  const [showCameraDetails, setShowCameraDetails] = useState(false);
 
   // Load capture counts from database on mount
   useEffect(() => {
@@ -107,6 +108,12 @@ function CameraPage() {
       socketConnection.on("camera:hide-qr-code", () => {
         console.log("🏠 Hide QR code command received");
         setShowQrCode(false);
+      });
+
+      // Listen for camera details toggle from admin
+      socketConnection.on("admin:toggle-camera-details", ({ show }: { show: boolean }) => {
+        console.log(`👁️ Camera details ${show ? "shown" : "hidden"} from admin`);
+        setShowCameraDetails(show);
       });
 
       // Emit cameras detected event for global button
@@ -269,6 +276,7 @@ function CameraPage() {
               cameras={currentCamera ? [currentCamera] : cameras}
               cameraRefs={cameraRefs}
               captureCounts={captureCounts}
+              showCameraDetails={showCameraDetails}
             />
 
             {/* Global Capture Button - Only show for primary camera */}

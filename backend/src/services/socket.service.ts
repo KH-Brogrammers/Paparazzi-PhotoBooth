@@ -126,6 +126,13 @@ export class SocketService {
         this.io.emit('screen:toggle-details', { show });
       });
 
+      // Handle admin toggle camera details
+      socket.on('admin:toggle-camera-details', ({ show }) => {
+        console.log(`📷 Admin toggling camera details: ${show ? 'show' : 'hide'}`);
+        // Broadcast to all camera devices
+        this.io.emit('admin:toggle-camera-details', { show });
+      });
+
       // Handle screen refresh request
       socket.on('screen:refresh', ({ screenId }) => {
         console.log(`🔄 Refresh request for screen: ${screenId}`);
