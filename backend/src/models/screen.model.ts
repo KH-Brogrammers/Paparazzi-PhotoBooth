@@ -13,6 +13,14 @@ export interface IScreen extends Document {
   };
   isPrimary: boolean;
   isAvailable: boolean;
+  isCollageScreen: boolean;
+  rotation: number; // 0, 90, -90
+  collagePosition?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
   lastSeen: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -45,6 +53,21 @@ const ScreenSchema: Schema = new Schema(
     isAvailable: {
       type: Boolean,
       default: true,
+    },
+    isCollageScreen: {
+      type: Boolean,
+      default: false,
+    },
+    rotation: {
+      type: Number,
+      default: 0,
+      enum: [0, 90, -90],
+    },
+    collagePosition: {
+      x: { type: Number, default: 0 },
+      y: { type: Number, default: 0 },
+      width: { type: Number },
+      height: { type: Number },
     },
     lastSeen: {
       type: Date,

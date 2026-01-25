@@ -196,6 +196,21 @@ export class SocketService {
     });
   }
 
+  // Broadcast screen capture to collage screen
+  public broadcastScreenCapture(screenId: string, captureData: any): void {
+    this.io.emit('screen:capture-ready', {
+      screenId,
+      ...captureData
+    });
+    console.log(`📤 Screen capture from ${screenId} broadcasted to collage`);
+  }
+
+  // Broadcast collage update
+  public broadcastCollageUpdate(screenId: string, isCollageScreen: boolean): void {
+    this.io.emit('collage:updated', { screenId, isCollageScreen });
+    console.log(`📤 Collage update broadcasted: ${screenId} is ${isCollageScreen ? 'now' : 'no longer'} collage screen`);
+  }
+
   // Clear all screens
   public clearAllScreens(): void {
     this.io.emit('screens:clear');

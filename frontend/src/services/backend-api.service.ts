@@ -56,6 +56,42 @@ export const screenApi = {
     });
     return response.json();
   },
+
+  toggleCollageScreen: async (screenId: string, isCollageScreen: boolean) => {
+    const response = await fetch(`${API_BASE_URL}/screens/${screenId}/collage`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isCollageScreen }),
+    });
+    return response.json();
+  },
+
+  updateRotation: async (screenId: string, rotation: number) => {
+    const response = await fetch(`${API_BASE_URL}/screens/${screenId}/rotation`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rotation }),
+    });
+    return response.json();
+  },
+
+  updateCollagePosition: async (screenId: string, position: { x: number; y: number; width: number; height: number }) => {
+    const response = await fetch(`${API_BASE_URL}/screens/${screenId}/collage-position`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(position),
+    });
+    return response.json();
+  },
+
+  uploadCollage: async (collageImageData: string, timestamp: number) => {
+    const response = await fetch(`${API_BASE_URL}/screens/upload-collage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ collageImageData, timestamp }),
+    });
+    return response.json();
+  },
 };
 
 // Mapping APIs

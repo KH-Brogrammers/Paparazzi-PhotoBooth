@@ -294,6 +294,44 @@ function AdminPage() {
     window.location.reload();
   };
 
+  const handleToggleCollageScreen = async (screenId: string, currentState: boolean) => {
+    try {
+      const newState = !currentState;
+      await screenApi.toggleCollageScreen(screenId, newState);
+      await loadData();
+      alert(newState ? 'Screen set as collage screen' : 'Collage screen removed');
+    } catch (error) {
+      console.error('Error toggling collage screen:', error);
+      alert('Failed to toggle collage screen');
+    }
+  };
+
+  const handleUpdateRotation = async (screenId: string, rotation: number) => {
+    try {
+      await screenApi.updateRotation(screenId, rotation);
+      await loadData();
+    } catch (error) {
+      console.error('Error updating rotation:', error);
+      alert('Failed to update rotation');
+    }
+  };
+
+  const handleUpdateCollagePosition = async (
+    screenId: string,
+    x: number,
+    y: number,
+    width: number,
+    height: number
+  ) => {
+    try {
+      await screenApi.updateCollagePosition(screenId, { x, y, width, height });
+      await loadData();
+    } catch (error) {
+      console.error('Error updating collage position:', error);
+      alert('Failed to update collage position');
+    }
+  };
+
   const handleToggleScreenDetails = () => {
     const newState = !showScreenDetails;
     setShowScreenDetails(newState);
@@ -384,7 +422,11 @@ function AdminPage() {
             {screens.map((screen) => (
               <div
                 key={screen.screenId}
-                className="bg-gray-800 border-2 border-gray-700 rounded-lg p-4"
+                className={`bg-gray-800 border-2 rounded-lg p-4 ${
+                  screen.isCollageScreen
+                    ? "border-purple-500"
+                    : "border-gray-700"
+                }`}
               >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2">
@@ -401,20 +443,106 @@ function AdminPage() {
                       {(screen as any).isConnected ? "● Online" : "○ Offline"}
                     </span>
                   </div>
-                  {screen.isPrimary && (
-                    <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded">
-                      Primary
-                    </span>
-                  )}
+                  <div className="flex gap-1">
+                    {screen.isPrimary && (
+                      <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded">
+                        Primary
+                      </span>
+                    )}
+                    {screen.isCollageScreen && (
+                      <span className="bg-purple-500 text-white text-xs px-2 py-1 rounded">
+                        Collage
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <p className="text-gray-400 text-sm mb-1">
                   ID: {screen.screenId.substring(0, 20)}...
                 </p>
                 {screen.resolution && (
-                  <p className="text-gray-400 text-sm">
+                  <p className="text-gray-400 text-sm mb-2">
                     {screen.resolution.width} × {screen.resolution.height}
                   </p>
                 )}
+
+                {/* Collage Toggle */}
+                <div className="mb-3 flex items-center justify-between bg-gray-700/50 p-2 rounded">
+                  <label className="text-white text-sm">Collage:</label>
+                  <button
+                    onClick={() =>
+                      handleToggleCollageScreen(
+                        screen.screenId,
+                        screen.isCollageScreen
+                      )
+                    }
+                    className={`px-3 py-1 rounded text-xs font-bold transition-colors ${
+                      screen.isCollageScreen
+                        ? "bg-purple-600 text-white"
+                        : "bg-gray-600 text-gray-300"
+                    }`}
+                  >
+                    {screen.isCollageScreen ? "ON" : "OFF"}
+                  </button>
+                </div>
+
+                {/* Rotation Dropdown */}
+                <div className="mb-3 flex items-center justify-between bg-gray-700/50 p-2 rounded">
+                  <label className="text-white text-sm">Rotation:</label>
+                  <select
+                    value={screen.rotation}
+                    onChange={(e) =>
+                      handleUpdateRotation(
+                        screen.screenId,
+                        parseInt(e.target.value)
+                      )
+                    }
+                    className="bg-gray-600 text-white text-sm px-2 py-1 rounded"
+                  >
+                    <option value={0}>0°</option>
+                    <option value={90}>90°</option>
+                    <option value={-90}>-90°</option>
+                  </select>
+                </div>
+
+                {/* Collage Position (only if collage screen) */}
+                {screen.isCollageScreen && (
+                  <div className="mb-3 bg-gray-700/50 p-2 rounded">
+                    <p className="text-white text-xs mb-2">Position (px):</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="number"
+                        placeholder="X"
+                        value={screen.collagePosition?.x || 0}
+                        onChange={(e) =>
+                          handleUpdateCollagePosition(
+                            screen.screenId,
+                            parseInt(e.target.value) || 0,
+                            screen.collagePosition?.y || 0,
+                            screen.collagePosition?.width || 0,
+                            screen.collagePosition?.height || 0
+                          )
+                        }
+                        className="bg-gray-600 text-white text-xs px-2 py-1 rounded"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Y"
+                        value={screen.collagePosition?.y || 0}
+                        onChange={(e) =>
+                          handleUpdateCollagePosition(
+                            screen.screenId,
+                            screen.collagePosition?.x || 0,
+                            parseInt(e.target.value) || 0,
+                            screen.collagePosition?.width || 0,
+                            screen.collagePosition?.height || 0
+                          )
+                        }
+                        className="bg-gray-600 text-white text-xs px-2 py-1 rounded"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex space-x-2 mt-3">
                   <button
                     onClick={() => handleUpdateScreenLabel(screen.screenId)}
@@ -548,7 +676,9 @@ function AdminPage() {
                     </p>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {screens.map((screen) => (
+                      {screens
+                        .filter((screen) => !screen.isCollageScreen) // Exclude collage screens from mapping
+                        .map((screen) => (
                         <label
                           key={screen.screenId}
                           className="flex items-center space-x-3 bg-gray-700/50 p-4 rounded-lg cursor-pointer hover:bg-gray-700 transition-colors"

@@ -231,6 +231,17 @@ export class ScreenController {
 
       console.log(`📸 Screen ${screenNumber} display captured and saved`);
 
+      // Broadcast screen capture to collage screen
+      const socketService = getSocketService();
+      const screen = await Screen.findOne({ screenId });
+      socketService.broadcastScreenCapture(screenId, {
+        imageUrl: s3Url || localUrl,
+        rotation: screen?.rotation || 0,
+        position: screen?.collagePosition,
+        screenLabel: screen?.label,
+        timestamp: timestampNum,
+      });
+
       res.status(201).json(screenCapture);
     } catch (error) {
       console.error('Error saving screen capture:', error);
@@ -263,6 +274,189 @@ export class ScreenController {
       res.status(500).json({
         error: 'INTERNAL_SERVER_ERROR',
         message: 'Failed to delete all screens',
+      });
+    }
+  }
+
+  // Toggle collage screen
+  async toggleCollageScreen(req: Request, res: Response): Promise<void> {
+    try {
+      const { screenId } = req.params;
+      const { isCollageScreen } = req.body;
+
+      // If setting as collage screen, unset other collage screens first
+      if (isCollageScreen) {
+        await Screen.updateMany(
+          { screenId: { $ne: screenId } },
+          { $set: { isCollageScreen: false } }
+        );
+      }
+
+      const screen = await Screen.findOneAndUpdate(
+        { screenId },
+        { isCollageScreen },
+        { new: true }
+      );
+
+      if (!screen) {
+        res.status(404).json({
+          error: 'NOT_FOUND',
+          message: 'Screen not found',
+        });
+        return;
+      }
+
+      // Notify all screens about collage change
+      const socketService = getSocketService();
+      socketService.broadcastCollageUpdate(screenId, isCollageScreen);
+
+      res.status(200).json(screen);
+    } catch (error) {
+      console.error('Error toggling collage screen:', error);
+      res.status(500).json({
+        error: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to toggle collage screen',
+      });
+    }
+  }
+
+  // Update screen rotation
+  async updateScreenRotation(req: Request, res: Response): Promise<void> {
+    try {
+      const { screenId } = req.params;
+      const { rotation } = req.body;
+
+      if (![0, 90, -90].includes(rotation)) {
+        res.status(400).json({
+          error: 'INVALID_REQUEST',
+          message: 'Rotation must be 0, 90, or -90',
+        });
+        return;
+      }
+
+      const screen = await Screen.findOneAndUpdate(
+        { screenId },
+        { rotation },
+        { new: true }
+      );
+
+      if (!screen) {
+        res.status(404).json({
+          error: 'NOT_FOUND',
+          message: 'Screen not found',
+        });
+        return;
+      }
+
+      res.status(200).json(screen);
+    } catch (error) {
+      console.error('Error updating screen rotation:', error);
+      res.status(500).json({
+        error: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to update screen rotation',
+      });
+    }
+  }
+
+  // Update screen collage position
+  async updateScreenCollagePosition(req: Request, res: Response): Promise<void> {
+    try {
+      const { screenId } = req.params;
+      const { x, y, width, height } = req.body;
+
+      const screen = await Screen.findOneAndUpdate(
+        { screenId },
+        { collagePosition: { x, y, width, height } },
+        { new: true }
+      );
+
+      if (!screen) {
+        res.status(404).json({
+          error: 'NOT_FOUND',
+          message: 'Screen not found',
+        });
+        return;
+      }
+
+      res.status(200).json(screen);
+    } catch (error) {
+      console.error('Error updating screen collage position:', error);
+      res.status(500).json({
+        error: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to update screen collage position',
+      });
+    }
+  }
+
+  // Upload collage to S3
+  async uploadCollage(req: Request, res: Response): Promise<void> {
+    try {
+      const { collageImageData, timestamp } = req.body;
+
+      if (!collageImageData) {
+        res.status(400).json({
+          error: 'INVALID_REQUEST',
+          message: 'collageImageData is required',
+        });
+        return;
+      }
+
+      const timestampNum = timestamp || Date.now();
+      const folderName = localStorageService.generateFolderName(timestampNum);
+
+      let s3Url = '';
+      let s3Key = '';
+      let localUrl = '';
+      let finalStorageType: 's3' | 'local' = 'local';
+
+      // Save locally first (failsafe)
+      localUrl = await localStorageService.saveImageLocally(
+        collageImageData,
+        folderName,
+        'collage',
+        timestampNum
+      );
+
+      // Try to upload to S3
+      if (s3Service.isConfigured()) {
+        try {
+          const s3Result = await localStorageService.uploadToS3WithFolder(
+            collageImageData,
+            folderName,
+            'collage',
+            timestampNum
+          );
+
+          if (s3Result) {
+            s3Url = s3Result.s3Url;
+            s3Key = s3Result.s3Key;
+            finalStorageType = 's3';
+          }
+        } catch (s3Error) {
+          console.error('S3 upload error for collage:', s3Error);
+        }
+      }
+
+      // Save metadata to MongoDB
+      const collageImage = await CapturedImage.create({
+        imageId: `collage_${timestampNum}`,
+        cameraId: 'collage',
+        cameraLabel: 'Collage Display',
+        s3Url,
+        s3Key,
+        localUrl,
+        storageType: finalStorageType,
+        timestamp: new Date(timestampNum),
+      });
+
+      console.log('🖼️ Collage uploaded successfully');
+
+      res.status(201).json(collageImage);
+    } catch (error) {
+      console.error('Error uploading collage:', error);
+      res.status(500).json({
+        error: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to upload collage',
       });
     }
   }
