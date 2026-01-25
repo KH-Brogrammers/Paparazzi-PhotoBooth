@@ -1,6 +1,21 @@
 import { useState, useEffect, useRef } from 'react';
 import { type Camera } from '../types/camera.types';
 
+// Generate unique device identifier
+const generateDeviceFingerprint = async (): Promise<string> => {
+  // Use a combination of screen resolution, user agent hash, and timestamp
+  const screenInfo = `${screen.width}x${screen.height}`;
+  const userAgentHash = navigator.userAgent.split('').reduce((a, b) => {
+    a = ((a << 5) - a) + b.charCodeAt(0);
+    return a & a;
+  }, 0);
+  
+  const timestamp = Date.now().toString().slice(-4); // Last 4 digits of timestamp
+  const deviceId = Math.abs(userAgentHash).toString(36).substring(0, 4);
+  
+  return `${deviceId}${timestamp}`;
+};
+
 export function useCameraAccess() {
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -63,18 +78,22 @@ export function useCameraAccess() {
       // Force rear camera for ALL devices - no front camera support
       console.log('🎯 Forcing REAR camera only for ALL devices');
       
+      // Create unique device identifier
+      const deviceFingerprint = await generateDeviceFingerprint();
+      const deviceIndex = Math.floor(Math.random() * 999) + 1; // Random 3-digit number
+      
       // Always use rear camera regardless of device type
       const rearCameraDevices = [
         {
-          deviceId: 'rear-camera', 
-          label: 'Rear Camera',
+          deviceId: `rear-camera-${deviceFingerprint}`, 
+          label: `Camera ${deviceIndex} - ${deviceFingerprint}`,
           kind: 'videoinput' as MediaDeviceKind,
           groupId: 'rear-only'
         }
       ];
 
       videoDevices = rearCameraDevices;
-      console.log('✅ All devices forced to use REAR camera only');
+      console.log('✅ All devices forced to use REAR camera only with unique ID:', deviceFingerprint);
 
       // Initialize cameras with streams one by one
       const initializedCameras: Camera[] = [];

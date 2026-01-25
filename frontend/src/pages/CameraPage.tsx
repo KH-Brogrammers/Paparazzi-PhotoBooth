@@ -41,8 +41,9 @@ function CameraPage() {
       const socketConnection = socketClient.connect();
       setSocket(socketConnection);
       
-      // Register as camera and get primary/secondary status
-      socketConnection.emit('register:camera', 'camera-device');
+      // Register as camera with unique device ID
+      const uniqueDeviceId = cameras[0]?.deviceId || 'camera-device';
+      socketConnection.emit('register:camera', uniqueDeviceId);
       
       // Listen for primary/secondary status
       socketConnection.on('camera:status', ({ isPrimary }: { isPrimary: boolean }) => {
