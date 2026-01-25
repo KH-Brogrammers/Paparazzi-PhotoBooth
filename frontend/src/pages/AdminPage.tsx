@@ -236,6 +236,32 @@ function AdminPage() {
     }
   };
 
+  const handleDeleteOfflineScreens = async () => {
+    const offlineScreens = screens.filter(screen => !(screen as any).isConnected);
+    
+    if (offlineScreens.length === 0) {
+      alert("No offline screens to delete.");
+      return;
+    }
+
+    if (
+      confirm(
+        `Are you sure you want to delete ${offlineScreens.length} offline screens? This will also remove them from all camera mappings.`,
+      )
+    ) {
+      try {
+        for (const screen of offlineScreens) {
+          await screenApi.delete(screen.screenId);
+        }
+        await loadData();
+        alert(`${offlineScreens.length} offline screens deleted successfully!`);
+      } catch (error) {
+        console.error("Error deleting offline screens:", error);
+        alert("Failed to delete offline screens");
+      }
+    }
+  };
+
   const handleHardRefresh = () => {
     window.location.reload();
   };
@@ -296,6 +322,14 @@ function AdminPage() {
               >
                 🔄 Hard Refresh
               </button>
+              {screens.filter(screen => !(screen as any).isConnected).length > 0 && (
+                <button
+                  onClick={handleDeleteOfflineScreens}
+                  className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition-colors"
+                >
+                  🗑️ Delete Offline ({screens.filter(screen => !(screen as any).isConnected).length})
+                </button>
+              )}
               {screens.length > 0 && (
                 <button
                   onClick={handleDeleteAllScreens}
