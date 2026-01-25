@@ -108,7 +108,7 @@ export class SocketService {
           socketId: socket.id
         }));
         
-        // Broadcast to admin panels
+        // Broadcast to admin panels and all camera devices
         this.io.emit('cameras:registered', camerasWithRole);
       });
 

@@ -16,6 +16,7 @@ function CameraPage() {
   const [isPrimaryCamera, setIsPrimaryCamera] = useState(false);
   const [socket, setSocket] = useState<any>(null);
   const [showCapturedMessage, setShowCapturedMessage] = useState(false);
+  const [totalCameraCount, setTotalCameraCount] = useState(1);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [showQrCode, setShowQrCode] = useState(false);
 
@@ -49,6 +50,12 @@ function CameraPage() {
       socketConnection.on('camera:status', ({ isPrimary }: { isPrimary: boolean }) => {
         setIsPrimaryCamera(isPrimary);
         console.log(`📷 Camera status: ${isPrimary ? 'PRIMARY' : 'SECONDARY'}`);
+      });
+
+      // Listen for camera registrations to get total count
+      socketConnection.on('cameras:registered', (camerasData: any[]) => {
+        console.log('📷 Total cameras in system:', camerasData.length);
+        setTotalCameraCount(camerasData.length);
       });
 
       // Listen for capture commands from primary
@@ -95,7 +102,7 @@ function CameraPage() {
   }, [cameras]);
 
   const handleCaptureAll = async () => {
-    if (isCapturing || !currentCamera) return;
+    if (isCapturing || cameras.length === 0) return;
 
     // If primary camera, send command to all cameras
     if (isPrimaryCamera && socket) {
@@ -263,7 +270,7 @@ function CameraPage() {
                       </>
                     )}
                   </svg>
-                  <span>{isCapturing ? 'Capturing...' : `Capture All Cameras (${cameras.length})`}</span>
+                  <span>{isCapturing ? 'Capturing...' : `Capture All Cameras (${totalCameraCount})`}</span>
                 </button>
               </div>
             )}
