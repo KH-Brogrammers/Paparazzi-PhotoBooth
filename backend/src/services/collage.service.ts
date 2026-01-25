@@ -32,15 +32,23 @@ class CollageService {
 
       const collagePaths: string[] = [];
 
+      // Determine collage save location - if folderPath contains camera subfolder, save to parent
+      let collageSavePath = fullFolderPath;
+      const pathParts = folderPath.split('/');
+      if (pathParts.length > 1) {
+        // Save collages to timestamp folder (parent directory)
+        collageSavePath = path.join(this.basePath, pathParts[0]);
+      }
+
       // Generate landscape collage (1920x1080)
       const landscapeBuffer = await this.createCollageFromImages(imageFiles, 'landscape');
-      const landscapePath = path.join(fullFolderPath, 'collage_landscape.jpg');
+      const landscapePath = path.join(collageSavePath, 'collage_landscape.jpg');
       fs.writeFileSync(landscapePath, landscapeBuffer);
       collagePaths.push(landscapePath);
 
       // Generate portrait collage (1080x1920)
       const portraitBuffer = await this.createCollageFromImages(imageFiles, 'portrait');
-      const portraitPath = path.join(fullFolderPath, 'collage_portrait.jpg');
+      const portraitPath = path.join(collageSavePath, 'collage_portrait.jpg');
       fs.writeFileSync(portraitPath, portraitBuffer);
       collagePaths.push(portraitPath);
       
@@ -248,14 +256,22 @@ class CollageService {
    * Check if collage exists for a folder
    */
   collageExists(folderPath: string, orientation?: 'landscape' | 'portrait'): boolean {
+    // Determine collage location - if folderPath contains camera subfolder, check parent
+    let collageCheckPath = folderPath;
+    const pathParts = folderPath.split('/');
+    if (pathParts.length > 1) {
+      // Check collages in timestamp folder (parent directory)
+      collageCheckPath = pathParts[0];
+    }
+
     if (orientation) {
-      const collagePath = path.join(this.basePath, folderPath, `collage_${orientation}.jpg`);
+      const collagePath = path.join(this.basePath, collageCheckPath, `collage_${orientation}.jpg`);
       return fs.existsSync(collagePath);
     }
     
     // Check if any collage exists
-    const landscapePath = path.join(this.basePath, folderPath, 'collage_landscape.jpg');
-    const portraitPath = path.join(this.basePath, folderPath, 'collage_portrait.jpg');
+    const landscapePath = path.join(this.basePath, collageCheckPath, 'collage_landscape.jpg');
+    const portraitPath = path.join(this.basePath, collageCheckPath, 'collage_portrait.jpg');
     return fs.existsSync(landscapePath) || fs.existsSync(portraitPath);
   }
 
@@ -263,7 +279,15 @@ class CollageService {
    * Get collage path for a folder
    */
   getCollagePath(folderPath: string, orientation: 'landscape' | 'portrait'): string {
-    return path.join(this.basePath, folderPath, `collage_${orientation}.jpg`);
+    // Determine collage location - if folderPath contains camera subfolder, use parent
+    let collagePathBase = folderPath;
+    const pathParts = folderPath.split('/');
+    if (pathParts.length > 1) {
+      // Get collages from timestamp folder (parent directory)
+      collagePathBase = pathParts[0];
+    }
+
+    return path.join(this.basePath, collagePathBase, `collage_${orientation}.jpg`);
   }
 
   /**
