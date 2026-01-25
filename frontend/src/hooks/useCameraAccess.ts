@@ -5,7 +5,6 @@ export function useCameraAccess() {
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentCameraIndex, setCurrentCameraIndex] = useState(0);
   const streamsRef = useRef<Map<string, MediaStream>>(new Map());
 
   useEffect(() => {
@@ -61,38 +60,21 @@ export function useCameraAccess() {
 
       console.log(`Found ${videoDevices.length} camera(s):`, videoDevices);
 
-      // On mobile/tablet, force rear camera only
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      // Force rear camera for ALL devices - no front camera support
+      console.log('🎯 Forcing REAR camera only for ALL devices');
       
-      if (isMobile) {
-        console.log('📱 Mobile/Tablet detected - forcing REAR camera only');
-        
-        // Only use rear camera for mobile/tablet devices
-        const mobileDevices = [
-          {
-            deviceId: 'rear-camera', 
-            label: 'Rear Camera',
-            kind: 'videoinput' as MediaDeviceKind,
-            groupId: 'mobile-cameras'
-          }
-        ];
+      // Always use rear camera regardless of device type
+      const rearCameraDevices = [
+        {
+          deviceId: 'rear-camera', 
+          label: 'Rear Camera',
+          kind: 'videoinput' as MediaDeviceKind,
+          groupId: 'rear-only'
+        }
+      ];
 
-        videoDevices = mobileDevices;
-        console.log('✅ Mobile cameras forced: REAR ONLY');
-      } else {
-        // For desktop, prioritize rear-facing cameras if available
-        console.log('🖥️ Desktop detected - using available cameras, prioritizing rear-facing');
-        
-        // Sort cameras to prioritize rear-facing ones
-        videoDevices.sort((a, b) => {
-          const aIsRear = a.label.toLowerCase().includes('back') || a.label.toLowerCase().includes('rear') || a.label.toLowerCase().includes('environment');
-          const bIsRear = b.label.toLowerCase().includes('back') || b.label.toLowerCase().includes('rear') || b.label.toLowerCase().includes('environment');
-          
-          if (aIsRear && !bIsRear) return -1;
-          if (!aIsRear && bIsRear) return 1;
-          return 0;
-        });
-      }
+      videoDevices = rearCameraDevices;
+      console.log('✅ All devices forced to use REAR camera only');
 
       // Initialize cameras with streams one by one
       const initializedCameras: Camera[] = [];
@@ -103,30 +85,14 @@ export function useCameraAccess() {
           
           let constraints;
           
-          // Use facingMode for mobile virtual cameras, deviceId for desktop
-          if (device.deviceId === 'rear-camera') {
-            constraints = {
-              video: {
-                facingMode: 'environment', // Force rear camera
-                width: { ideal: 1920 },
-                height: { ideal: 1080 },
-              },
-            };
-          } else {
-            // For desktop cameras, try to prefer rear-facing if possible
-            const isRearFacing = device.label.toLowerCase().includes('back') || 
-                               device.label.toLowerCase().includes('rear') || 
-                               device.label.toLowerCase().includes('environment');
-            
-            constraints = {
-              video: {
-                deviceId: device.deviceId ? { exact: device.deviceId } : undefined,
-                facingMode: isRearFacing ? 'environment' : undefined,
-                width: { ideal: 1920 },
-                height: { ideal: 1080 },
-              },
-            };
-          }
+          // Always force rear camera for all devices
+          constraints = {
+            video: {
+              facingMode: 'environment', // Force rear camera
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
+            },
+          };
 
           const stream = await navigator.mediaDevices.getUserMedia(constraints);
           streamsRef.current.set(device.deviceId, stream);
@@ -172,7 +138,7 @@ export function useCameraAccess() {
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          deviceId: { exact: deviceId },
+          facingMode: 'environment', // Always rear camera
           width: { ideal: 1920 },
           height: { ideal: 1080 },
         },
@@ -190,28 +156,10 @@ export function useCameraAccess() {
     }
   };
 
-  const switchCamera = () => {
-    console.log('🔄 switchCamera called, current cameras:', cameras.length);
-    if (cameras.length > 1) {
-      const nextIndex = (currentCameraIndex + 1) % cameras.length;
-      console.log('🔄 Switching from index', currentCameraIndex, 'to', nextIndex);
-      setCurrentCameraIndex(nextIndex);
-    } else {
-      console.log('⚠️ Cannot switch - only', cameras.length, 'camera(s) available');
-    }
-  };
-
-  const getCurrentCamera = () => {
-    return cameras[currentCameraIndex] || cameras[0];
-  };
-
   return {
     cameras,
     isLoading,
     error,
-    currentCamera: getCurrentCamera(),
-    canSwitchCamera: cameras.length > 1,
-    switchCamera,
     stopCamera,
     restartCamera,
   };

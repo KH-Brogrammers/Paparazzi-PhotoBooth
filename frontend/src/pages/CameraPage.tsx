@@ -9,7 +9,7 @@ import ErrorMessage from '../components/ErrorMessage';
 import { type CameraCardRef } from '../components/CameraCard';
 
 function CameraPage() {
-  const { cameras, isLoading, error, currentCamera, canSwitchCamera, switchCamera } = useCameraAccess();
+  const { cameras, isLoading, error } = useCameraAccess();
   const { captureImage, isCapturing } = useImageCapture();
   const cameraRefs = useRef<(CameraCardRef | null)[]>([]);
   const [captureCounts, setCaptureCounts] = useState<Record<string, number>>({});
@@ -95,25 +95,6 @@ function CameraPage() {
       };
     }
   }, [cameras]);
-
-  // Listen for global camera switch events
-  useEffect(() => {
-    const handleSwitchCamera = (event: CustomEvent) => {
-      console.log('🔄 Global switch camera event received');
-      if (canSwitchCamera) {
-        console.log('🔄 Switching camera...');
-        switchCamera();
-      } else {
-        console.log('⚠️ Cannot switch camera - only one available');
-      }
-    };
-
-    window.addEventListener('switch-camera', handleSwitchCamera as EventListener);
-    
-    return () => {
-      window.removeEventListener('switch-camera', handleSwitchCamera as EventListener);
-    };
-  }, [canSwitchCamera, switchCamera]);
 
   const handleCaptureAll = async () => {
     if (isCapturing || !currentCamera) return;
@@ -230,7 +211,7 @@ function CameraPage() {
         ) : (
           <>
             <CameraGrid 
-              cameras={currentCamera ? [currentCamera] : cameras} 
+              cameras={cameras} 
               cameraRefs={cameraRefs}
               captureCounts={captureCounts}
             />
