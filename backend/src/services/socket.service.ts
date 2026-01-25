@@ -170,6 +170,14 @@ export class SocketService {
     return Array.from(this.screenSockets.keys());
   }
 
+  // Emit to all camera screens (primary and secondary)
+  public emitToAllCameras(data: any): void {
+    this.cameraSockets.forEach((socketId) => {
+      this.io.to(socketId).emit('qr_code_generated', data);
+    });
+    console.log(`📤 QR code sent to ${this.cameraSockets.size} camera screens`);
+  }
+
   public getIO(): SocketServer {
     return this.io;
   }

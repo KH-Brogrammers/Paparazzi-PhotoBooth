@@ -16,6 +16,8 @@ function CameraPage() {
   const [isPrimaryCamera, setIsPrimaryCamera] = useState(false);
   const [socket, setSocket] = useState<any>(null);
   const [showCapturedMessage, setShowCapturedMessage] = useState(false);
+  const [qrCode, setQrCode] = useState<string | null>(null);
+  const [showQrCode, setShowQrCode] = useState(false);
 
   // Load capture counts from database on mount
   useEffect(() => {
@@ -68,6 +70,13 @@ function CameraPage() {
       // Listen for admin requests for camera info
       socketConnection.on('admin:request-cameras', () => {
         socketConnection.emit('cameras:register', cameras);
+      });
+
+      // Listen for QR code generation
+      socketConnection.on('qr_code_generated', (data: any) => {
+        console.log('📱 QR Code received:', data);
+        setQrCode(data.qrCode);
+        setShowQrCode(true);
       });
 
       // Emit cameras detected event for global button
@@ -306,6 +315,35 @@ function CameraPage() {
         <div className="fixed inset-0 flex items-center justify-center z-[9999] pointer-events-none">
           <div className="bg-green-600 text-white px-8 py-4 rounded-xl text-2xl font-bold shadow-2xl animate-bounce">
             📸 Screen Captured!
+          </div>
+        </div>
+      )}
+
+      {/* QR Code Display */}
+      {showQrCode && qrCode && (
+        <div className="fixed inset-0 flex items-center justify-center z-[9999] bg-black bg-opacity-75">
+          <div className="bg-white p-8 rounded-2xl shadow-2xl max-w-sm mx-4 text-center">
+            <h3 className="text-2xl font-bold text-gray-800 mb-4">
+              📱 Scan to Download Photos
+            </h3>
+            <div className="mb-4">
+              <img 
+                src={qrCode} 
+                alt="QR Code for photo download" 
+                className="mx-auto w-64 h-64"
+              />
+            </div>
+            <p className="text-gray-600 mb-4">
+              Scan this QR code with your phone to download all photos from this session
+            </p>
+            {isPrimaryCamera && (
+              <button
+                onClick={() => setShowQrCode(false)}
+                className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-bold text-lg"
+              >
+                🏠 Home - Take New Photo
+              </button>
+            )}
           </div>
         </div>
       )}

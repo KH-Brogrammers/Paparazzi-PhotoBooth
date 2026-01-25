@@ -5,6 +5,7 @@ import { Screen } from "../models/screen.model";
 import { getSocketService } from "../services/socket.service";
 import { localStorageService } from "../services/localStorage.service";
 import { s3Service } from "../services/s3.service";
+import QRCode from 'qrcode';
 
 export class ImageController {
   // Save captured image with both S3 and local storage
@@ -132,6 +133,33 @@ export class ImageController {
         savedImages.push(image);
       }
 
+      // Generate QR Code for download
+      let qrCodeDataUrl: string | undefined;
+      try {
+        // Create session ID from timestamp for download
+        const sessionId = `${timestampNum}-${timeFolder.replace(/[/:]/g, '-')}`;
+        
+        // Create download URL using the frontend URL
+        const frontendUrl = 'https://8d2mn5x3-5173.inc1.devtunnels.ms';
+        const backendUrl = process.env.BACKEND_URL || 'http://localhost:8800';
+        const downloadUrl = `${backendUrl}/api/download/${sessionId}`;
+
+        // Generate QR code
+        qrCodeDataUrl = await QRCode.toDataURL(downloadUrl, {
+          width: 300,
+          margin: 2,
+          color: {
+            dark: '#000000',
+            light: '#FFFFFF'
+          }
+        });
+
+        console.log('✅ QR Code generated for session:', sessionId);
+        console.log('🔗 Download URL:', downloadUrl);
+      } catch (qrError) {
+        console.error('Error generating QR code:', qrError);
+      }
+
       // Emit image to connected mapped screens via socket
       activeScreenIds.forEach((screenId, index) => {
         const screenImage = savedImages[index];
@@ -142,15 +170,28 @@ export class ImageController {
           imageUrl: screenImage.s3Url || screenImage.localUrl,
           storageType: screenImage.storageType,
           timestamp: timestampNum,
+          qrCode: qrCodeDataUrl, // Include QR code in the emission
         });
       });
+
+      // Also emit QR code to all camera screens (primary and secondary)
+      if (qrCodeDataUrl) {
+        socketService.emitToAllCameras({
+          type: 'qr_code_generated',
+          qrCode: qrCodeDataUrl,
+          sessionFolder: timeFolder,
+          timestamp: timestampNum,
+        });
+      }
 
       console.log(`✅ Saved ${savedImages.length} images for ${activeScreenIds.length} connected screens`);
 
       res.status(201).json({
         message: `Successfully saved ${savedImages.length} images`,
         images: savedImages,
-        screenCount: activeScreenIds.length
+        screenCount: activeScreenIds.length,
+        qrCode: qrCodeDataUrl,
+        sessionFolder: timeFolder
       });
     } catch (error) {
       console.error("Error saving image:", error);
