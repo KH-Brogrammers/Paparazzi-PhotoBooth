@@ -1,18 +1,27 @@
-import { useRef, useState, useEffect } from 'react';
-import { useCameraAccess } from '../hooks/useCameraAccess';
-import { useImageCapture } from '../hooks/useImageCapture';
-import { screenApi, imageApi } from '../services/backend-api.service';
-import { socketClient } from '../services/socket.service';
-import CameraGrid from '../components/CameraGrid';
-import LoadingSpinner from '../components/LoadingSpinner';
-import ErrorMessage from '../components/ErrorMessage';
-import { type CameraCardRef } from '../components/CameraCard';
+import { useRef, useState, useEffect } from "react";
+import { useCameraAccess } from "../hooks/useCameraAccess";
+import { useImageCapture } from "../hooks/useImageCapture";
+import { screenApi, imageApi } from "../services/backend-api.service";
+import { socketClient } from "../services/socket.service";
+import CameraGrid from "../components/CameraGrid";
+import LoadingSpinner from "../components/LoadingSpinner";
+import ErrorMessage from "../components/ErrorMessage";
+import { type CameraCardRef } from "../components/CameraCard";
 
 function CameraPage() {
-  const { cameras, isLoading, error, currentCamera, canSwitchCamera, switchCamera } = useCameraAccess();
+  const {
+    cameras,
+    isLoading,
+    error,
+    currentCamera,
+    canSwitchCamera,
+    switchCamera,
+  } = useCameraAccess();
   const { captureImage, isCapturing } = useImageCapture();
   const cameraRefs = useRef<(CameraCardRef | null)[]>([]);
-  const [captureCounts, setCaptureCounts] = useState<Record<string, number>>({});
+  const [captureCounts, setCaptureCounts] = useState<Record<string, number>>(
+    {},
+  );
   const [isPrimaryCamera, setIsPrimaryCamera] = useState(false);
   const [socket, setSocket] = useState<any>(null);
   const [showCapturedMessage, setShowCapturedMessage] = useState(false);
@@ -28,7 +37,7 @@ function CameraPage() {
           setCaptureCounts(response.counts);
         }
       } catch (error) {
-        console.error('Error loading capture counts:', error);
+        console.error("Error loading capture counts:", error);
       }
     };
 
@@ -40,56 +49,63 @@ function CameraPage() {
     if (cameras.length > 0) {
       const socketConnection = socketClient.connect();
       setSocket(socketConnection);
-      
+
       // Register as camera and get primary/secondary status
-      socketConnection.emit('register:camera', 'camera-device');
-      
+      socketConnection.emit("register:camera", "camera-device");
+
       // Listen for primary/secondary status
-      socketConnection.on('camera:status', ({ isPrimary }: { isPrimary: boolean }) => {
-        setIsPrimaryCamera(isPrimary);
-        console.log(`📷 Camera status: ${isPrimary ? 'PRIMARY' : 'SECONDARY'}`);
-      });
+      socketConnection.on(
+        "camera:status",
+        ({ isPrimary }: { isPrimary: boolean }) => {
+          setIsPrimaryCamera(isPrimary);
+          console.log(
+            `📷 Camera status: ${isPrimary ? "PRIMARY" : "SECONDARY"}`,
+          );
+        },
+      );
 
       // Listen for capture commands from primary
-      socketConnection.on('camera:execute-capture', () => {
-        console.log('📸 Executing capture command');
+      socketConnection.on("camera:execute-capture", () => {
+        console.log("📸 Executing capture command");
         setShowCapturedMessage(true);
         setTimeout(() => setShowCapturedMessage(false), 2000);
         handleCaptureAll();
       });
 
       // Listen for refresh commands from primary
-      socketConnection.on('camera:execute-refresh', () => {
-        console.log('🔄 Executing refresh command');
+      socketConnection.on("camera:execute-refresh", () => {
+        console.log("🔄 Executing refresh command");
         handleClearScreens();
       });
-      
+
       // Register cameras with admin panel
-      socketConnection.emit('cameras:register', cameras);
-      
+      socketConnection.emit("cameras:register", cameras);
+
       // Listen for admin requests for camera info
-      socketConnection.on('admin:request-cameras', () => {
-        socketConnection.emit('cameras:register', cameras);
+      socketConnection.on("admin:request-cameras", () => {
+        socketConnection.emit("cameras:register", cameras);
       });
 
       // Listen for QR code generation
-      socketConnection.on('qr_code_generated', (data: any) => {
-        console.log('📱 QR Code received:', data);
+      socketConnection.on("qr_code_generated", (data: any) => {
+        console.log("📱 QR Code received:", data);
         setQrCode(data.qrCode);
         setShowQrCode(true);
       });
 
       // Listen for hide QR code command
-      socketConnection.on('camera:hide-qr-code', () => {
-        console.log('🏠 Hide QR code command received');
+      socketConnection.on("camera:hide-qr-code", () => {
+        console.log("🏠 Hide QR code command received");
         setShowQrCode(false);
       });
 
       // Emit cameras detected event for global button
-      window.dispatchEvent(new CustomEvent('cameras-detected', { 
-        detail: { cameras } 
-      }));
-      
+      window.dispatchEvent(
+        new CustomEvent("cameras-detected", {
+          detail: { cameras },
+        }),
+      );
+
       return () => {
         socketConnection.disconnect();
       };
@@ -99,19 +115,25 @@ function CameraPage() {
   // Listen for global camera switch events
   useEffect(() => {
     const handleSwitchCamera = (event: CustomEvent) => {
-      console.log('🔄 Global switch camera event received');
+      console.log("🔄 Global switch camera event received");
       if (canSwitchCamera) {
-        console.log('🔄 Switching camera...');
+        console.log("🔄 Switching camera...");
         switchCamera();
       } else {
-        console.log('⚠️ Cannot switch camera - only one available');
+        console.log("⚠️ Cannot switch camera - only one available");
       }
     };
 
-    window.addEventListener('switch-camera', handleSwitchCamera as EventListener);
-    
+    window.addEventListener(
+      "switch-camera",
+      handleSwitchCamera as EventListener,
+    );
+
     return () => {
-      window.removeEventListener('switch-camera', handleSwitchCamera as EventListener);
+      window.removeEventListener(
+        "switch-camera",
+        handleSwitchCamera as EventListener,
+      );
     };
   }, [canSwitchCamera, switchCamera]);
 
@@ -122,7 +144,7 @@ function CameraPage() {
     if (isPrimaryCamera && socket) {
       setShowCapturedMessage(true);
       setTimeout(() => setShowCapturedMessage(false), 2000);
-      socket.emit('camera:capture-all');
+      socket.emit("camera:capture-all");
       return;
     }
 
@@ -139,24 +161,24 @@ function CameraPage() {
       const result = await captureImage(
         cameraData.videoElement,
         cameraData.cameraId,
-        cameraData.cameraLabel
+        cameraData.cameraLabel,
       );
 
       if (result) {
-        setCaptureCounts(prev => ({
+        setCaptureCounts((prev) => ({
           ...prev,
-          [result.cameraId]: (prev[result.cameraId] || 0) + 1
+          [result.cameraId]: (prev[result.cameraId] || 0) + 1,
         }));
       }
     } catch (error) {
-      console.error('Error capturing image:', error);
+      console.error("Error capturing image:", error);
     }
   };
 
   const handleClearScreens = async () => {
     // If primary camera, send command to all cameras
     if (isPrimaryCamera && socket) {
-      socket.emit('camera:refresh-all');
+      socket.emit("camera:refresh-all");
       return;
     }
 
@@ -164,7 +186,7 @@ function CameraPage() {
     try {
       await screenApi.clearAll();
     } catch (error) {
-      console.error('Error clearing screens:', error);
+      console.error("Error clearing screens:", error);
     }
   };
 
@@ -177,7 +199,7 @@ function CameraPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 md:p-6">
+    <div className="min-h-screen h-screen flex flex-col bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
       {/* Header - Hidden on mobile */}
       <header className="mb-8 hidden md:block">
         <div className="max-w-7xl mx-auto">
@@ -187,24 +209,26 @@ function CameraPage() {
                 Photo Shoot Studio
               </h1>
               <p className="text-gray-400 text-lg">
-                {cameras.length} {cameras.length === 1 ? 'camera' : 'cameras'}{' '}
+                {cameras.length} {cameras.length === 1 ? "camera" : "cameras"}{" "}
                 detected and online
               </p>
             </div>
             {/* Primary/Secondary Status Indicator */}
-            <div className={`px-4 py-2 rounded-full text-sm font-bold ${
-              isPrimaryCamera 
-                ? 'bg-green-600 text-white' 
-                : 'bg-gray-600 text-gray-300'
-            }`}>
-              {isPrimaryCamera ? '🎯 PRIMARY CAMERA' : '📷 SECONDARY CAMERA'}
+            <div
+              className={`px-4 py-2 rounded-full text-sm font-bold ${
+                isPrimaryCamera
+                  ? "bg-green-600 text-white"
+                  : "bg-gray-600 text-gray-300"
+              }`}
+            >
+              {isPrimaryCamera ? "🎯 PRIMARY CAMERA" : "📷 SECONDARY CAMERA"}
             </div>
           </div>
         </div>
       </header>
 
       {/* Camera Grid */}
-      <main className="md:max-w-7xl md:mx-auto h-screen md:h-auto">
+      <main className="w-full h-full flex-1 flex">
         {cameras.length === 0 ? (
           <div className="bg-gray-800 border-2 border-gray-700 rounded-xl p-12 text-center">
             <svg
@@ -229,12 +253,12 @@ function CameraPage() {
           </div>
         ) : (
           <>
-            <CameraGrid 
-              cameras={currentCamera ? [currentCamera] : cameras} 
+            <CameraGrid
+              cameras={currentCamera ? [currentCamera] : cameras}
               cameraRefs={cameraRefs}
               captureCounts={captureCounts}
             />
-            
+
             {/* Global Capture Button - Only show for primary camera */}
             {isPrimaryCamera && (
               <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50">
@@ -246,8 +270,8 @@ function CameraPage() {
                     transition-all duration-200 transform
                     ${
                       isCapturing
-                        ? 'bg-gray-600 cursor-not-allowed'
-                        : 'bg-blue-600 hover:bg-blue-700 hover:scale-110 active:scale-95'
+                        ? "bg-gray-600 cursor-not-allowed"
+                        : "bg-blue-600 hover:bg-blue-700 hover:scale-110 active:scale-95"
                     }
                     disabled:opacity-50 disabled:cursor-not-allowed
                     shadow-2xl hover:shadow-blue-500/50
@@ -255,7 +279,7 @@ function CameraPage() {
                   `}
                 >
                   <svg
-                    className={`w-8 h-8 ${isCapturing ? 'animate-spin' : ''}`}
+                    className={`w-8 h-8 ${isCapturing ? "animate-spin" : ""}`}
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -284,7 +308,11 @@ function CameraPage() {
                       </>
                     )}
                   </svg>
-                  <span>{isCapturing ? 'Capturing...' : `Capture All Cameras (${cameras.length})`}</span>
+                  <span>
+                    {isCapturing
+                      ? "Capturing..."
+                      : `Capture All Cameras (${cameras.length})`}
+                  </span>
                 </button>
               </div>
             )}
@@ -299,18 +327,18 @@ function CameraPage() {
           className="fixed bottom-4 right-4 p-4 bg-purple-600 hover:bg-purple-700 text-white rounded-full shadow-lg transition-colors z-50"
           title="Clear all screens"
         >
-          <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            className="h-6 w-6" 
-            fill="none" 
-            viewBox="0 0 24 24" 
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
             stroke="currentColor"
           >
-            <path 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              strokeWidth={2} 
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" 
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
             />
           </svg>
         </button>
@@ -333,14 +361,15 @@ function CameraPage() {
               📱 Scan to Download Photos
             </h3>
             <div className="mb-4">
-              <img 
-                src={qrCode} 
-                alt="QR Code for photo download" 
+              <img
+                src={qrCode}
+                alt="QR Code for photo download"
                 className="mx-auto w-64 h-64"
               />
             </div>
             <p className="text-gray-600 mb-4">
-              Scan this QR code with your phone to download all photos from this session
+              Scan this QR code with your phone to download all photos from this
+              session
             </p>
             {isPrimaryCamera && (
               <button
@@ -348,7 +377,7 @@ function CameraPage() {
                   setShowQrCode(false);
                   // Emit to all cameras to hide QR code
                   if (socket) {
-                    socket.emit('camera:hide-qr-code');
+                    socket.emit("camera:hide-qr-code");
                   }
                 }}
                 className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-bold text-lg"
