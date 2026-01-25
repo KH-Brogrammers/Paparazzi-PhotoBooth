@@ -70,6 +70,15 @@ export class SocketService {
         }
       });
 
+      // Handle hide QR code command from primary camera
+      socket.on('camera:hide-qr-code', () => {
+        if (socket.id === this.primaryCameraSocket) {
+          console.log('🏠 Hide QR code command from primary camera');
+          // Broadcast to all cameras including primary
+          this.io.emit('camera:hide-qr-code');
+        }
+      });
+
       // Handle camera registration from devices
       socket.on('cameras:register', (cameras: any[]) => {
         console.log(`📷 Cameras registered from device:`, cameras);

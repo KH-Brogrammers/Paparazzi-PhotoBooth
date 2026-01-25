@@ -79,6 +79,12 @@ function CameraPage() {
         setShowQrCode(true);
       });
 
+      // Listen for hide QR code command
+      socketConnection.on('camera:hide-qr-code', () => {
+        console.log('🏠 Hide QR code command received');
+        setShowQrCode(false);
+      });
+
       // Emit cameras detected event for global button
       window.dispatchEvent(new CustomEvent('cameras-detected', { 
         detail: { cameras } 
@@ -338,7 +344,13 @@ function CameraPage() {
             </p>
             {isPrimaryCamera && (
               <button
-                onClick={() => setShowQrCode(false)}
+                onClick={() => {
+                  setShowQrCode(false);
+                  // Emit to all cameras to hide QR code
+                  if (socket) {
+                    socket.emit('camera:hide-qr-code');
+                  }
+                }}
                 className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-bold text-lg"
               >
                 🏠 Home - Take New Photo
