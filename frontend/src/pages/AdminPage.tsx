@@ -1,18 +1,19 @@
-import { useEffect, useState } from 'react';
-import { screenApi, mappingApi } from '../services/backend-api.service';
-import { socketClient } from '../services/socket.service';
-import { type Screen, type CameraMapping } from '../types/screen.types';
+import { useEffect, useState } from "react";
+import { screenApi, mappingApi } from "../services/backend-api.service";
+import { socketClient } from "../services/socket.service";
+import { type Screen, type CameraMapping } from "../types/screen.types";
 
 function AdminPage() {
   const [screens, setScreens] = useState<Screen[]>([]);
   const [mappings, setMappings] = useState<CameraMapping[]>([]);
   const [allCameras, setAllCameras] = useState<any[]>([]);
-  const [selectedMappings, setSelectedMappings] = useState<Record<string, string[]>>({});
+  const [selectedMappings, setSelectedMappings] = useState<
+    Record<string, string[]>
+  >({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showScreenDetails, setShowScreenDetails] = useState(false);
 
-  
   const loadData = async () => {
     try {
       setLoading(true);
@@ -30,46 +31,48 @@ function AdminPage() {
         initialMappings[mapping.cameraId] = mapping.screenIds;
       });
       setSelectedMappings(initialMappings);
-      
+
       setLoading(false);
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error("Error loading data:", error);
       setLoading(false);
     }
   };
 
   useEffect(() => {
     loadData();
-    
+
     // Connect to socket for real-time updates
     const socket = socketClient.connect();
-    
+
     // Listen for screen registration/disconnection
-    socket.on('screen:registered', () => {
-      console.log('📺 Screen registered - refreshing admin panel');
+    socket.on("screen:registered", () => {
+      console.log("📺 Screen registered - refreshing admin panel");
       loadData();
     });
-    
-    socket.on('screen:disconnected', () => {
-      console.log('📺 Screen disconnected - refreshing admin panel');
+
+    socket.on("screen:disconnected", () => {
+      console.log("📺 Screen disconnected - refreshing admin panel");
       loadData();
     });
-    
+
     // Listen for mapping updates
-    socket.on('mappings:updated', () => {
-      console.log('🔄 Mappings updated - refreshing admin panel');
+    socket.on("mappings:updated", () => {
+      console.log("🔄 Mappings updated - refreshing admin panel");
       loadData();
     });
-    
+
     // Listen for camera registrations from all devices
-    socket.on('cameras:registered', (camerasData: any[]) => {
-      console.log('📷 Cameras registered from device:', camerasData);
-      setAllCameras(prev => {
+    socket.on("cameras:registered", (camerasData: any[]) => {
+      console.log("📷 Cameras registered from device:", camerasData);
+      setAllCameras((prev) => {
         // Merge cameras from different devices, avoiding duplicates
         const merged = [...prev];
-        camerasData.forEach(newCamera => {
+        camerasData.forEach((newCamera) => {
           // Remove any existing camera with same deviceId to avoid duplicates
-          const existingIndex = merged.findIndex(cam => cam.deviceId === newCamera.deviceId);
+          const existingIndex = merged.findIndex(
+            (cam) => cam.deviceId === newCamera.deviceId,
+          );
           if (existingIndex >= 0) {
             merged[existingIndex] = newCamera; // Update existing
           } else {
@@ -81,45 +84,56 @@ function AdminPage() {
     });
 
     // Listen for primary status updates
-    socket.on('camera:primary-updated', ({ deviceId, isPrimary }: { deviceId: string, isPrimary: boolean }) => {
-      console.log('📷 Primary status updated:', deviceId, isPrimary);
-      setAllCameras(prev => 
-        prev.map(camera => 
-          camera.deviceId === deviceId 
-            ? { ...camera, role: isPrimary ? 'PRIMARY' : 'SECONDARY' }
-            : { ...camera, role: camera.deviceId === deviceId ? camera.role : 'SECONDARY' }
-        )
-      );
-    });
-    
+    socket.on(
+      "camera:primary-updated",
+      ({ deviceId, isPrimary }: { deviceId: string; isPrimary: boolean }) => {
+        console.log("📷 Primary status updated:", deviceId, isPrimary);
+        setAllCameras((prev) =>
+          prev.map((camera) =>
+            camera.deviceId === deviceId
+              ? { ...camera, role: isPrimary ? "PRIMARY" : "SECONDARY" }
+              : {
+                  ...camera,
+                  role:
+                    camera.deviceId === deviceId ? camera.role : "SECONDARY",
+                },
+          ),
+        );
+      },
+    );
+
     // Clear existing cameras and request fresh data
     setAllCameras([]);
-    socket.emit('admin:request-cameras');
-    
+    socket.emit("admin:request-cameras");
+
     return () => {
       socket.disconnect();
     };
   }, []);
 
   const handleDeleteOldCameras = async () => {
-    if (confirm('Remove old generic camera entries (Front Camera, Rear Camera) from mappings?')) {
+    if (
+      confirm(
+        "Remove old generic camera entries (Front Camera, Rear Camera) from mappings?",
+      )
+    ) {
       try {
         // Delete old generic camera mappings
-        await mappingApi.delete('front-camera');
-        await mappingApi.delete('rear-camera');
-        
+        await mappingApi.delete("front-camera");
+        await mappingApi.delete("rear-camera");
+
         // Refresh data
         loadData();
-        
+
         // Clear and refresh cameras
         setAllCameras([]);
         const socket = socketClient.connect();
-        socket.emit('admin:request-cameras');
-        
-        alert('Old camera entries removed successfully!');
+        socket.emit("admin:request-cameras");
+
+        alert("Old camera entries removed successfully!");
       } catch (error) {
-        console.error('Error removing old cameras:', error);
-        alert('Error removing old cameras. Check console for details.');
+        console.error("Error removing old cameras:", error);
+        alert("Error removing old cameras. Check console for details.");
       }
     }
   };
@@ -130,7 +144,7 @@ function AdminPage() {
       const updated = current.includes(screenId)
         ? current.filter((id) => id !== screenId)
         : [...current, screenId];
-      
+
       return {
         ...prev,
         [cameraId]: updated,
@@ -142,14 +156,14 @@ function AdminPage() {
     try {
       // Emit refresh event to specific screen via socket
       const socket = socketClient.connect();
-      socket.emit('screen:refresh', { screenId });
+      socket.emit("screen:refresh", { screenId });
       console.log(`🔄 Refresh signal sent to screen: ${screenId}`);
-      
+
       // Also show visual feedback
       alert(`Refresh signal sent to screen: ${screenId.substring(0, 20)}...`);
     } catch (error) {
-      console.error('Error refreshing screen:', error);
-      alert('Failed to send refresh signal');
+      console.error("Error refreshing screen:", error);
+      alert("Failed to send refresh signal");
     }
   };
 
@@ -165,51 +179,59 @@ function AdminPage() {
 
       await Promise.all(savePromises);
       await loadData(); // Reload to get updated data
-      
-      alert('Mappings saved successfully!');
+
+      alert("Mappings saved successfully!");
       setSaving(false);
     } catch (error) {
-      console.error('Error saving mappings:', error);
-      alert('Failed to save mappings');
+      console.error("Error saving mappings:", error);
+      alert("Failed to save mappings");
       setSaving(false);
     }
   };
 
   const handleUpdateScreenLabel = async (screenId: string) => {
-    const newLabel = prompt('Enter new label for this screen:');
+    const newLabel = prompt("Enter new label for this screen:");
     if (newLabel) {
       try {
         await screenApi.updateLabel(screenId, newLabel);
         await loadData();
       } catch (error) {
-        console.error('Error updating screen label:', error);
-        alert('Failed to update screen label');
+        console.error("Error updating screen label:", error);
+        alert("Failed to update screen label");
       }
     }
   };
 
   const handleDeleteScreen = async (screenId: string, screenLabel: string) => {
-    if (confirm(`Are you sure you want to delete "${screenLabel}"? This will also remove it from all camera mappings.`)) {
+    if (
+      confirm(
+        `Are you sure you want to delete "${screenLabel}"? This will also remove it from all camera mappings.`,
+      )
+    ) {
       try {
         await screenApi.delete(screenId);
         await loadData();
-        alert('Screen deleted successfully!');
+        alert("Screen deleted successfully!");
       } catch (error) {
-        console.error('Error deleting screen:', error);
-        alert('Failed to delete screen');
+        console.error("Error deleting screen:", error);
+        alert("Failed to delete screen");
       }
     }
   };
 
   const handleDeleteAllScreens = async () => {
-    if (confirm(`Are you sure you want to delete ALL ${screens.length} screens? This will also clear all camera mappings.`)) {
+    if (
+      confirm(
+        `Are you sure you want to delete ALL ${screens.length} screens? This will also clear all camera mappings.`,
+      )
+    ) {
       try {
         await screenApi.deleteAll();
         await loadData();
-        alert('All screens deleted successfully!');
+        alert("All screens deleted successfully!");
       } catch (error) {
-        console.error('Error deleting all screens:', error);
-        alert('Failed to delete all screens');
+        console.error("Error deleting all screens:", error);
+        alert("Failed to delete all screens");
       }
     }
   };
@@ -221,23 +243,25 @@ function AdminPage() {
   const handleToggleScreenDetails = () => {
     const newState = !showScreenDetails;
     setShowScreenDetails(newState);
-    
+
     // Emit to all screens via socket
     const socket = socketClient.connect();
-    socket.emit('admin:toggle-screen-details', { show: newState });
-    console.log(`📺 Screen details ${newState ? 'shown' : 'hidden'} on all screens`);
+    socket.emit("admin:toggle-screen-details", { show: newState });
+    console.log(
+      `📺 Screen details ${newState ? "shown" : "hidden"} on all screens`,
+    );
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+      <div className="flex w-full items-center justify-center h-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
         <div className="text-white text-xl">Loading...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-8">
+    <div className="overflow-auto w-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <header className="mb-8">
@@ -257,12 +281,14 @@ function AdminPage() {
               <button
                 onClick={handleToggleScreenDetails}
                 className={`px-4 py-2 font-semibold rounded-lg transition-colors ${
-                  showScreenDetails 
-                    ? 'bg-red-600 hover:bg-red-700 text-white' 
-                    : 'bg-green-600 hover:bg-green-700 text-white'
+                  showScreenDetails
+                    ? "bg-red-600 hover:bg-red-700 text-white"
+                    : "bg-green-600 hover:bg-green-700 text-white"
                 }`}
               >
-                {showScreenDetails ? '👁️‍🗨️ Hide Screen Details' : '👁️ Show Screen Details'}
+                {showScreenDetails
+                  ? "👁️‍🗨️ Hide Screen Details"
+                  : "👁️ Show Screen Details"}
               </button>
               <button
                 onClick={handleHardRefresh}
@@ -291,12 +317,14 @@ function AdminPage() {
                     <h3 className="text-white font-semibold text-lg">
                       {screen.label}
                     </h3>
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      (screen as any).isConnected 
-                        ? 'bg-green-600 text-white' 
-                        : 'bg-red-600 text-white'
-                    }`}>
-                      {(screen as any).isConnected ? '● Online' : '○ Offline'}
+                    <span
+                      className={`px-2 py-1 text-xs rounded-full ${
+                        (screen as any).isConnected
+                          ? "bg-green-600 text-white"
+                          : "bg-red-600 text-white"
+                      }`}
+                    >
+                      {(screen as any).isConnected ? "● Online" : "○ Offline"}
                     </span>
                   </div>
                   {screen.isPrimary && (
@@ -321,7 +349,9 @@ function AdminPage() {
                     Rename
                   </button>
                   <button
-                    onClick={() => handleDeleteScreen(screen.screenId, screen.label)}
+                    onClick={() =>
+                      handleDeleteScreen(screen.screenId, screen.label)
+                    }
                     className="text-red-400 hover:text-red-300 text-sm"
                   >
                     Delete
@@ -332,7 +362,8 @@ function AdminPage() {
             {screens.length === 0 && (
               <div className="col-span-full bg-gray-800 border-2 border-gray-700 rounded-lg p-8 text-center">
                 <p className="text-gray-400">
-                  No screens connected. Open /screens on different displays to register them.
+                  No screens connected. Open /screens on different displays to
+                  register them.
                 </p>
               </div>
             )}
@@ -349,7 +380,7 @@ function AdminPage() {
               onClick={() => {
                 setAllCameras([]);
                 const socket = socketClient.connect();
-                socket.emit('admin:request-cameras');
+                socket.emit("admin:request-cameras");
               }}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors mr-3"
             >
@@ -362,74 +393,90 @@ function AdminPage() {
               🗑️ Clean Old Cameras
             </button>
           </div>
-          
+
           {allCameras.length === 0 ? (
             <div className="bg-gray-800 border-2 border-gray-700 rounded-lg p-8 text-center">
               <p className="text-gray-400">
-                No cameras detected. Please go to the home page to initialize cameras.
+                No cameras detected. Please go to the home page to initialize
+                cameras.
               </p>
             </div>
           ) : screens.length === 0 ? (
             <div className="bg-gray-800 border-2 border-gray-700 rounded-lg p-8 text-center">
               <p className="text-gray-400">
-                No screens available for mapping. Open /screens on displays first.
+                No screens available for mapping. Open /screens on displays
+                first.
               </p>
             </div>
           ) : (
             <div className="space-y-6">
               {allCameras
-                .filter(camera => 
-                  // Filter out old generic cameras
-                  !['front-camera', 'rear-camera'].includes(camera.deviceId) &&
-                  !['Front Camera', 'Rear Camera'].includes(camera.label)
+                .filter(
+                  (camera) =>
+                    // Filter out old generic cameras
+                    !["front-camera", "rear-camera"].includes(
+                      camera.deviceId,
+                    ) &&
+                    !["Front Camera", "Rear Camera"].includes(camera.label),
                 )
                 .map((camera, index) => (
-                <div
-                  key={camera.deviceId}
-                  className="bg-gray-800 border-2 border-gray-700 rounded-lg p-6"
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-white font-semibold text-xl">
-                      📷 {camera.label}
-                    </h3>
-                    <span className={`px-3 py-1 text-sm font-bold rounded-full ${
-                      camera.role === 'PRIMARY' 
-                        ? 'bg-green-600 text-white' 
-                        : 'bg-gray-600 text-gray-300'
-                    }`}>
-                      {camera.role === 'PRIMARY' ? '🎯 PRIMARY' : '📷 SECONDARY'}
-                    </span>
-                  </div>
-                  <p className="text-gray-400 text-sm mb-4">
-                    Select which screens should display images from this camera:
-                  </p>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {screens.map((screen) => (
-                      <label
-                        key={screen.screenId}
-                        className="flex items-center space-x-3 bg-gray-700/50 p-4 rounded-lg cursor-pointer hover:bg-gray-700 transition-colors"
+                  <div
+                    key={camera.deviceId}
+                    className="bg-gray-800 border-2 border-gray-700 rounded-lg p-6"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-white font-semibold text-xl">
+                        📷 {camera.label}
+                      </h3>
+                      <span
+                        className={`px-3 py-1 text-sm font-bold rounded-full ${
+                          camera.role === "PRIMARY"
+                            ? "bg-green-600 text-white"
+                            : "bg-gray-600 text-gray-300"
+                        }`}
                       >
-                        <input
-                          type="checkbox"
-                          checked={
-                            selectedMappings[camera.deviceId]?.includes(screen.screenId) || false
-                          }
-                          onChange={() =>
-                            handleCheckboxChange(camera.deviceId, screen.screenId)
-                          }
-                          className="w-5 h-5 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
-                        />
-                        <span className="text-white">{screen.label}</span>
-                      </label>
-                    ))}
+                        {camera.role === "PRIMARY"
+                          ? "🎯 PRIMARY"
+                          : "📷 SECONDARY"}
+                      </span>
+                    </div>
+                    <p className="text-gray-400 text-sm mb-4">
+                      Select which screens should display images from this
+                      camera:
+                    </p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {screens.map((screen) => (
+                        <label
+                          key={screen.screenId}
+                          className="flex items-center space-x-3 bg-gray-700/50 p-4 rounded-lg cursor-pointer hover:bg-gray-700 transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={
+                              selectedMappings[camera.deviceId]?.includes(
+                                screen.screenId,
+                              ) || false
+                            }
+                            onChange={() =>
+                              handleCheckboxChange(
+                                camera.deviceId,
+                                screen.screenId,
+                              )
+                            }
+                            className="w-5 h-5 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                          />
+                          <span className="text-white">{screen.label}</span>
+                        </label>
+                      ))}
+                    </div>
+
+                    <p className="text-sm text-gray-500 mt-3">
+                      {selectedMappings[camera.deviceId]?.length || 0} screen(s)
+                      selected
+                    </p>
                   </div>
-                  
-                  <p className="text-sm text-gray-500 mt-3">
-                    {selectedMappings[camera.deviceId]?.length || 0} screen(s) selected
-                  </p>
-                </div>
-              ))}
+                ))}
             </div>
           )}
         </section>
@@ -445,13 +492,13 @@ function AdminPage() {
                 transition-all duration-200 transform
                 ${
                   saving
-                    ? 'bg-gray-600 cursor-not-allowed'
-                    : 'bg-green-600 hover:bg-green-700 hover:scale-105 active:scale-95'
+                    ? "bg-gray-600 cursor-not-allowed"
+                    : "bg-green-600 hover:bg-green-700 hover:scale-105 active:scale-95"
                 }
                 shadow-xl
               `}
             >
-              {saving ? 'Saving...' : 'Save All Mappings'}
+              {saving ? "Saving..." : "Save All Mappings"}
             </button>
           </div>
         )}

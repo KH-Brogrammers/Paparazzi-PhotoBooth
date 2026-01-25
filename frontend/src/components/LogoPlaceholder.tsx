@@ -1,8 +1,7 @@
 function LogoPlaceholder() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+    <div className="flex flex-col items-center justify-center h-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
       <div className="text-center">
-        {/* Animated Camera Icon */}
         <div className="relative inline-block">
           <div className="absolute inset-0 bg-blue-500 rounded-full blur-3xl opacity-20 animate-pulse"></div>
           <svg
@@ -27,23 +26,30 @@ function LogoPlaceholder() {
         </div>
 
         {/* Brand Text */}
-        <h1 className="mt-8 text-5xl font-bold text-white">
+        {/* <h1 className="mt-8 text-5xl font-bold text-white">
           Photo Shoot Studio
-        </h1>
+          </h1>
         <p className="mt-4 text-xl text-gray-400">
           Professional Multi-Camera System
-        </p>
+        </p> */}
+        <div className="py-4">
+          <img src="/logo.png" alt="" className="lg:w-72 w-32" />
+        </div>
 
         {/* Animated Dots */}
         <div className="flex items-center justify-center space-x-2 mt-8">
           <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce"></div>
-          <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-          <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+          <div
+            className="w-3 h-3 bg-blue-500 rounded-full animate-bounce"
+            style={{ animationDelay: "0.1s" }}
+          ></div>
+          <div
+            className="w-3 h-3 bg-blue-500 rounded-full animate-bounce"
+            style={{ animationDelay: "0.2s" }}
+          ></div>
         </div>
 
-        <p className="mt-6 text-gray-500 text-sm">
-          Waiting for content...
-        </p>
+        <p className="mt-6 text-gray-500 text-sm">Waiting for content...</p>
       </div>
     </div>
   );

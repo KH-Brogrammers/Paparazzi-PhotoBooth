@@ -50,20 +50,25 @@ function CameraPage() {
     if (cameras.length > 0) {
       const socketConnection = socketClient.connect();
       setSocket(socketConnection);
-      
+
       // Register as camera with unique device ID
-      const uniqueDeviceId = cameras[0]?.deviceId || 'camera-device';
-      socketConnection.emit('register:camera', uniqueDeviceId);
-      
+      const uniqueDeviceId = cameras[0]?.deviceId || "camera-device";
+      socketConnection.emit("register:camera", uniqueDeviceId);
+
       // Listen for primary/secondary status from backend
-      socketConnection.on('camera:status', ({ isPrimary }: { isPrimary: boolean }) => {
-        setIsPrimaryCamera(isPrimary);
-        console.log(`📷 Camera status: ${isPrimary ? 'PRIMARY' : 'SECONDARY'}`);
-      });
+      socketConnection.on(
+        "camera:status",
+        ({ isPrimary }: { isPrimary: boolean }) => {
+          setIsPrimaryCamera(isPrimary);
+          console.log(
+            `📷 Camera status: ${isPrimary ? "PRIMARY" : "SECONDARY"}`,
+          );
+        },
+      );
 
       // Listen for camera registrations to get total count
-      socketConnection.on('cameras:registered', (camerasData: any[]) => {
-        console.log('📷 Total cameras in system:', camerasData.length);
+      socketConnection.on("cameras:registered", (camerasData: any[]) => {
+        console.log("📷 Total cameras in system:", camerasData.length);
         setTotalCameraCount(camerasData.length);
       });
 
@@ -82,13 +87,13 @@ function CameraPage() {
       });
 
       // Register cameras with admin panel
-      console.log('📷 Registering cameras with admin panel:', cameras);
-      socketConnection.emit('cameras:register', cameras);
-      
+      console.log("📷 Registering cameras with admin panel:", cameras);
+      socketConnection.emit("cameras:register", cameras);
+
       // Listen for admin requests for camera info
-      socketConnection.on('admin:request-cameras', () => {
-        console.log('📋 Admin requested cameras, sending:', cameras);
-        socketConnection.emit('cameras:register', cameras);
+      socketConnection.on("admin:request-cameras", () => {
+        console.log("📋 Admin requested cameras, sending:", cameras);
+        socketConnection.emit("cameras:register", cameras);
       });
 
       // Listen for QR code generation
@@ -204,12 +209,12 @@ function CameraPage() {
   }
 
   return (
-    <div className="min-h-screen h-screen flex flex-col bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+    <div className="w-full h-full flex flex-col overflow-hidden relative">
       {/* Header - Hidden on mobile */}
-      <header className="hidden md:block p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between">
-            <div>
+      <header className="hidden md:block absolute w-full top-0 z-50">
+        <div className="mx-auto w-full">
+          <div className="flex items-center justify-between w-full pr-4">
+            {/* <div>
               <h1 className="text-4xl font-bold text-white mb-2">
                 Photo Shoot Studio
               </h1>
@@ -217,10 +222,12 @@ function CameraPage() {
                 {cameras.length} {cameras.length === 1 ? "camera" : "cameras"}{" "}
                 detected and online
               </p>
+            </div> */}
+            <div className="p-4 w-full h-fit">
+              <img src="/logo.png" alt="" className="lg:w-54 w-32" />
             </div>
-            {/* Primary/Secondary Status Indicator */}
             <div
-              className={`px-4 py-2 rounded-full text-sm font-bold ${
+              className={`px-4 py-2 text-nowrap rounded-full text-sm font-bold ${
                 isPrimaryCamera
                   ? "bg-green-600 text-white"
                   : "bg-gray-600 text-gray-300"
@@ -233,7 +240,7 @@ function CameraPage() {
       </header>
 
       {/* Camera Grid */}
-      <main className="w-full h-full flex-1 flex">
+      <main className="flex flex-1 flex-col items-center overflow-hidden min-h-0">
         {cameras.length === 0 ? (
           <div className="bg-gray-800 border-2 border-gray-700 rounded-xl p-12 text-center">
             <svg
@@ -313,7 +320,6 @@ function CameraPage() {
                       </>
                     )}
                   </svg>
-                  <span>{isCapturing ? 'Capturing...' : `Capture All Cameras (${totalCameraCount})`}</span>
                 </button>
               </div>
             )}

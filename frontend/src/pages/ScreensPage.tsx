@@ -18,27 +18,27 @@ function ScreensPage() {
   const captureScreenDisplay = async (originalImageData: ImageData) => {
     try {
       // Capture the current screen content
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+
       if (!ctx) return;
-      
+
       // Set canvas size to screen size
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
-      
+
       // Use html2canvas to capture the screen content
-      const html2canvas = (await import('html2canvas')).default;
+      const html2canvas = (await import("html2canvas")).default;
       const screenCanvas = await html2canvas(document.body, {
         width: window.innerWidth,
         height: window.innerHeight,
         useCORS: true,
         allowTaint: true,
       });
-      
+
       // Convert to base64
-      const screenImageData = screenCanvas.toDataURL('image/jpeg', 0.9);
-      
+      const screenImageData = screenCanvas.toDataURL("image/jpeg", 0.9);
+
       // Send the screen capture back to server for storage
       await screenApi.saveScreenCapture({
         screenId,
@@ -47,7 +47,7 @@ function ScreensPage() {
         screenImageData,
         timestamp: Date.now(),
       });
-      
+
       console.log("📸 Screen display captured and saved");
     } catch (error) {
       console.error("Error capturing screen display:", error);
@@ -105,7 +105,7 @@ function ScreensPage() {
       socket.on("image:captured", (imageData: ImageData) => {
         console.log("📸 Received image:", imageData);
         setCurrentImage(imageData);
-        
+
         // After displaying the image, capture what's shown on screen and send back
         setTimeout(() => {
           captureScreenDisplay(imageData);
@@ -134,7 +134,7 @@ function ScreensPage() {
 
       // Listen for screen details toggle
       socket.on("screen:toggle-details", ({ show }) => {
-        console.log(`📺 Screen details toggle: ${show ? 'show' : 'hide'}`);
+        console.log(`📺 Screen details toggle: ${show ? "show" : "hide"}`);
         setShowDetails(show);
       });
     } catch (err) {
@@ -156,7 +156,10 @@ function ScreensPage() {
 
   if (error && !isRegistered) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
+      <div className="flex flex-col items-center relative justify-center h-full w-full p-6">
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50">
+          <img src="/logo.png" alt="" className="lg:w-54 w-32" />
+        </div>
         <div className="bg-yellow-500/10 border-2 border-yellow-500 rounded-xl p-8 max-w-2xl">
           <div className="flex items-center justify-center w-16 h-16 bg-yellow-500 rounded-full mx-auto mb-4">
             <svg
@@ -215,7 +218,10 @@ function ScreensPage() {
 
       {/* Display captured image or logo */}
       {currentImage ? (
-        <div className="w-full h-full flex justify-center bg-white">
+        <div className="w-full relative h-full flex justify-center bg-white">
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50">
+            <img src="/logo.png" alt="" className="lg:w-54 w-32" />
+          </div>
           <img
             src={currentImage.imageUrl}
             alt={`Captured from ${currentImage.cameraLabel}`}
