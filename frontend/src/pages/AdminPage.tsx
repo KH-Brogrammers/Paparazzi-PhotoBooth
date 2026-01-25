@@ -79,6 +79,18 @@ function AdminPage() {
         return merged;
       });
     });
+
+    // Listen for primary status updates
+    socket.on('camera:primary-updated', ({ deviceId, isPrimary }: { deviceId: string, isPrimary: boolean }) => {
+      console.log('📷 Primary status updated:', deviceId, isPrimary);
+      setAllCameras(prev => 
+        prev.map(camera => 
+          camera.deviceId === deviceId 
+            ? { ...camera, role: isPrimary ? 'PRIMARY' : 'SECONDARY' }
+            : { ...camera, role: camera.deviceId === deviceId ? camera.role : 'SECONDARY' }
+        )
+      );
+    });
     
     // Clear existing cameras and request fresh data
     setAllCameras([]);
@@ -371,7 +383,7 @@ function AdminPage() {
                   !['front-camera', 'rear-camera'].includes(camera.deviceId) &&
                   !['Front Camera', 'Rear Camera'].includes(camera.label)
                 )
-                .map((camera) => (
+                .map((camera, index) => (
                 <div
                   key={camera.deviceId}
                   className="bg-gray-800 border-2 border-gray-700 rounded-lg p-6"

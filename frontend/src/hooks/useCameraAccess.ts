@@ -1,19 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { type Camera } from '../types/camera.types';
 
-// Generate unique device identifier
+// Generate unique device identifier (without timestamp for consistency)
 const generateDeviceFingerprint = async (): Promise<string> => {
-  // Use a combination of screen resolution, user agent hash, and timestamp
+  // Use a combination of screen resolution and user agent hash (no timestamp)
   const screenInfo = `${screen.width}x${screen.height}`;
   const userAgentHash = navigator.userAgent.split('').reduce((a, b) => {
     a = ((a << 5) - a) + b.charCodeAt(0);
     return a & a;
   }, 0);
   
-  const timestamp = Date.now().toString().slice(-4); // Last 4 digits of timestamp
-  const deviceId = Math.abs(userAgentHash).toString(36).substring(0, 4);
+  const deviceId = Math.abs(userAgentHash).toString(36).substring(0, 6);
   
-  return `${deviceId}${timestamp}`;
+  return `${deviceId}${screenInfo.replace('x', '')}`;
 };
 
 export function useCameraAccess() {

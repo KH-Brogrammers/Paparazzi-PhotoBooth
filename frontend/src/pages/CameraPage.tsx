@@ -35,7 +35,7 @@ function CameraPage() {
     loadCaptureCounts();
   }, []);
 
-  // Register cameras and establish primary/secondary status
+  // Determine if this is primary camera based on device fingerprint order
   useEffect(() => {
     if (cameras.length > 0) {
       const socketConnection = socketClient.connect();
@@ -45,7 +45,7 @@ function CameraPage() {
       const uniqueDeviceId = cameras[0]?.deviceId || 'camera-device';
       socketConnection.emit('register:camera', uniqueDeviceId);
       
-      // Listen for primary/secondary status
+      // Listen for primary/secondary status from backend
       socketConnection.on('camera:status', ({ isPrimary }: { isPrimary: boolean }) => {
         setIsPrimaryCamera(isPrimary);
         console.log(`📷 Camera status: ${isPrimary ? 'PRIMARY' : 'SECONDARY'}`);
