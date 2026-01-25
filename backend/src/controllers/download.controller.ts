@@ -42,14 +42,14 @@ export const downloadPhotosZip = async (req: Request, res: Response) => {
     // Pipe archive to response
     archive.pipe(res);
     
-    // Check if local folder exists (fallback storage)
+    // ALWAYS check local storage first (reliable fallback)
     if (fs.existsSync(sessionFolderPath)) {
-      console.log('✅ Local session folder found (fallback storage), using local files');
+      console.log('✅ Local session folder found (fallback storage always available), using local files');
       // Add entire session folder to archive
       archive.directory(sessionFolderPath, false);
       console.log('✅ Added entire local session folder to ZIP');
     } else {
-      console.log('📁 Local folder not found, checking S3 (primary storage)...');
+      console.log('⚠️ Local folder not found (fallback failed), trying S3 (primary storage)...');
       
       // Try to get images from database for this session
       const parts = sessionId.split('-');
@@ -73,7 +73,7 @@ export const downloadPhotosZip = async (req: Request, res: Response) => {
       for (const image of images) {
         try {
           if (image.storageType === 's3' && image.s3Url) {
-            console.log('📥 Downloading from S3:', image.s3Url);
+            console.log('📥 Downloading from S3 (local fallback not available):', image.s3Url);
             const response = await fetch(image.s3Url);
             if (response.ok) {
               const buffer = Buffer.from(await response.arrayBuffer());
@@ -84,8 +84,8 @@ export const downloadPhotosZip = async (req: Request, res: Response) => {
             } else {
               console.log('❌ Failed to download S3 file:', image.s3Url);
             }
-          } else {
-            console.log('⚠️ Image not stored in S3:', image.imageId);
+          } else if (image.storageType === 'local' && image.localUrl) {
+            console.log('⚠️ Image marked as local but folder not found:', image.localUrl);
           }
         } catch (error) {
           console.error(`❌ Error downloading S3 image ${image.imageId}:`, error);
@@ -93,11 +93,11 @@ export const downloadPhotosZip = async (req: Request, res: Response) => {
       }
       
       if (s3FilesAdded === 0) {
-        console.log('❌ No S3 files could be downloaded');
-        return res.status(404).json({ error: 'No photos could be downloaded from storage' });
+        console.log('❌ No files could be downloaded from any storage');
+        return res.status(404).json({ error: 'No photos could be downloaded - both local fallback and S3 primary storage failed' });
       }
       
-      console.log(`✅ Added ${s3FilesAdded} S3 files to ZIP`);
+      console.log(`✅ Added ${s3FilesAdded} S3 files to ZIP (local fallback was not available)`);
     }
 
     // Finalize archive
