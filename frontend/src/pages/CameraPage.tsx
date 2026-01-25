@@ -233,15 +233,17 @@ function CameraPage() {
             <div className="p-4 w-full h-fit">
               <img src="/logo.png" alt="" className="lg:w-54 w-32" />
             </div>
-            <div
-              className={`px-4 py-2 text-nowrap rounded-full text-sm font-bold ${
-                isPrimaryCamera
-                  ? "bg-green-600 text-white"
-                  : "bg-gray-600 text-gray-300"
-              }`}
-            >
-              {isPrimaryCamera ? "🎯 PRIMARY CAMERA" : "📷 SECONDARY CAMERA"}
-            </div>
+            {showCameraDetails && (
+              <div
+                className={`px-4 py-2 text-nowrap rounded-full text-sm font-bold ${
+                  isPrimaryCamera
+                    ? "bg-green-600 text-white"
+                    : "bg-gray-600 text-gray-300"
+                }`}
+              >
+                {isPrimaryCamera ? "🎯 PRIMARY CAMERA" : "📷 SECONDARY CAMERA"}
+              </div>
+            )}
           </div>
         </div>
       </header>
