@@ -4,6 +4,7 @@ import http from 'http';
 import { config } from './config/env.config';
 import { connectDatabase } from './config/database.config';
 import { initializeSocketService } from './services/socket.service';
+import { collageService } from './services/collage.service';
 import { routes } from './routes';
 
 const app: Application = express();
@@ -36,6 +37,17 @@ const startServer = async () => {
       console.log(`🚀 Server is running on http://localhost:${PORT}`);
       console.log(`📸 Photo Shoot Backend API ready!`);
       console.log(`🔌 Socket.io initialized`);
+      
+      // Generate missing collages on startup (non-blocking)
+      setTimeout(async () => {
+        try {
+          console.log('🎨 Checking for missing collages...');
+          await collageService.generateMissingCollages();
+          console.log('✅ Missing collages check completed');
+        } catch (error) {
+          console.error('❌ Error generating missing collages on startup:', error);
+        }
+      }, 5000); // Wait 5 seconds after server start
     });
   } catch (error) {
     console.error('Failed to start server:', error);

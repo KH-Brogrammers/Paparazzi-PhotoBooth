@@ -5,6 +5,7 @@ import { Screen } from "../models/screen.model";
 import { getSocketService } from "../services/socket.service";
 import { localStorageService } from "../services/localStorage.service";
 import { s3Service } from "../services/s3.service";
+import { collageService } from "../services/collage.service";
 import QRCode from 'qrcode';
 
 export class ImageController {
@@ -186,6 +187,18 @@ export class ImageController {
 
       console.log(`✅ Saved ${savedImages.length} images for ${activeScreenIds.length} connected screens`);
 
+      // Generate collage after saving all images
+      try {
+        const collageResult = await collageService.generateCollageWithS3Upload(folderName);
+        console.log(`🎨 Collage generated for folder: ${folderName}`);
+        if (collageResult.s3Urls && collageResult.s3Urls.length > 0) {
+          console.log(`☁️ Collages uploaded to S3`);
+        }
+      } catch (collageError) {
+        console.error('Error generating collage:', collageError);
+        // Don't fail the request if collage generation fails
+      }
+
       res.status(201).json({
         message: `Successfully saved ${savedImages.length} images`,
         images: savedImages,
@@ -320,6 +333,55 @@ export class ImageController {
       res.status(500).json({
         error: 'INTERNAL_SERVER_ERROR',
         message: 'Failed to serve image',
+      });
+    }
+  }
+
+  // Serve collage image
+  async serveCollage(req: Request, res: Response): Promise<void> {
+    try {
+      const { folderPath } = req.params;
+      const { orientation = 'landscape' } = req.query;
+      const decodedFolderPath = decodeURIComponent(folderPath);
+      const targetOrientation = orientation as 'landscape' | 'portrait';
+
+      // Check if collage exists
+      if (!collageService.collageExists(decodedFolderPath, targetOrientation)) {
+        // Try to generate collage if it doesn't exist
+        try {
+          await collageService.generateCollage(decodedFolderPath);
+        } catch (generateError) {
+          res.status(404).json({
+            error: 'NOT_FOUND',
+            message: 'Collage not found and could not be generated',
+          });
+          return;
+        }
+      }
+
+      const collagePath = collageService.getCollagePath(decodedFolderPath, targetOrientation);
+      res.sendFile(collagePath);
+    } catch (error) {
+      console.error('Error serving collage:', error);
+      res.status(500).json({
+        error: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to serve collage',
+      });
+    }
+  }
+
+  // Generate missing collages for all folders
+  async generateMissingCollages(req: Request, res: Response): Promise<void> {
+    try {
+      await collageService.generateMissingCollages();
+      res.status(200).json({
+        message: 'Missing collages generation completed',
+      });
+    } catch (error) {
+      console.error('Error generating missing collages:', error);
+      res.status(500).json({
+        error: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to generate missing collages',
       });
     }
   }
