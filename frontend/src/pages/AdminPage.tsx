@@ -89,6 +89,29 @@ function AdminPage() {
     };
   }, []);
 
+  const handleDeleteOldCameras = async () => {
+    if (confirm('Remove old generic camera entries (Front Camera, Rear Camera) from mappings?')) {
+      try {
+        // Delete old generic camera mappings
+        await mappingApi.delete('front-camera');
+        await mappingApi.delete('rear-camera');
+        
+        // Refresh data
+        loadData();
+        
+        // Clear and refresh cameras
+        setAllCameras([]);
+        const socket = socketClient.connect();
+        socket.emit('admin:request-cameras');
+        
+        alert('Old camera entries removed successfully!');
+      } catch (error) {
+        console.error('Error removing old cameras:', error);
+        alert('Error removing old cameras. Check console for details.');
+      }
+    }
+  };
+
   const handleCheckboxChange = (cameraId: string, screenId: string) => {
     setSelectedMappings((prev) => {
       const current = prev[cameraId] || [];
@@ -316,9 +339,15 @@ function AdminPage() {
                 const socket = socketClient.connect();
                 socket.emit('admin:request-cameras');
               }}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors mr-3"
             >
               🔄 Refresh Cameras
+            </button>
+            <button
+              onClick={handleDeleteOldCameras}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+            >
+              🗑️ Clean Old Cameras
             </button>
           </div>
           
@@ -336,7 +365,13 @@ function AdminPage() {
             </div>
           ) : (
             <div className="space-y-6">
-              {allCameras.map((camera) => (
+              {allCameras
+                .filter(camera => 
+                  // Filter out old generic cameras
+                  !['front-camera', 'rear-camera'].includes(camera.deviceId) &&
+                  !['Front Camera', 'Rear Camera'].includes(camera.label)
+                )
+                .map((camera) => (
                 <div
                   key={camera.deviceId}
                   className="bg-gray-800 border-2 border-gray-700 rounded-lg p-6"
