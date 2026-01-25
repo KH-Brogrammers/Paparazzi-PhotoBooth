@@ -61,20 +61,14 @@ export function useCameraAccess() {
 
       console.log(`Found ${videoDevices.length} camera(s):`, videoDevices);
 
-      // On mobile, try to detect front and rear cameras specifically
+      // On mobile/tablet, force rear camera only
       const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
       
       if (isMobile) {
-        console.log('📱 Mobile detected - forcing front and rear camera detection');
+        console.log('📱 Mobile/Tablet detected - forcing REAR camera only');
         
-        // Always create both front and rear camera options for mobile
+        // Only use rear camera for mobile/tablet devices
         const mobileDevices = [
-          {
-            deviceId: 'front-camera',
-            label: 'Front Camera',
-            kind: 'videoinput' as MediaDeviceKind,
-            groupId: 'mobile-cameras'
-          },
           {
             deviceId: 'rear-camera', 
             label: 'Rear Camera',
@@ -84,7 +78,20 @@ export function useCameraAccess() {
         ];
 
         videoDevices = mobileDevices;
-        console.log('✅ Mobile cameras forced: Front + Rear');
+        console.log('✅ Mobile cameras forced: REAR ONLY');
+      } else {
+        // For desktop, prioritize rear-facing cameras if available
+        console.log('🖥️ Desktop detected - using available cameras, prioritizing rear-facing');
+        
+        // Sort cameras to prioritize rear-facing ones
+        videoDevices.sort((a, b) => {
+          const aIsRear = a.label.toLowerCase().includes('back') || a.label.toLowerCase().includes('rear') || a.label.toLowerCase().includes('environment');
+          const bIsRear = b.label.toLowerCase().includes('back') || b.label.toLowerCase().includes('rear') || b.label.toLowerCase().includes('environment');
+          
+          if (aIsRear && !bIsRear) return -1;
+          if (!aIsRear && bIsRear) return 1;
+          return 0;
+        });
       }
 
       // Initialize cameras with streams one by one
@@ -96,27 +103,25 @@ export function useCameraAccess() {
           
           let constraints;
           
-          // Use facingMode for mobile virtual cameras
-          if (device.deviceId === 'front-camera') {
+          // Use facingMode for mobile virtual cameras, deviceId for desktop
+          if (device.deviceId === 'rear-camera') {
             constraints = {
               video: {
-                facingMode: 'user',
-                width: { ideal: 1920 },
-                height: { ideal: 1080 },
-              },
-            };
-          } else if (device.deviceId === 'rear-camera') {
-            constraints = {
-              video: {
-                facingMode: 'environment',
+                facingMode: 'environment', // Force rear camera
                 width: { ideal: 1920 },
                 height: { ideal: 1080 },
               },
             };
           } else {
+            // For desktop cameras, try to prefer rear-facing if possible
+            const isRearFacing = device.label.toLowerCase().includes('back') || 
+                               device.label.toLowerCase().includes('rear') || 
+                               device.label.toLowerCase().includes('environment');
+            
             constraints = {
               video: {
                 deviceId: device.deviceId ? { exact: device.deviceId } : undefined,
+                facingMode: isRearFacing ? 'environment' : undefined,
                 width: { ideal: 1920 },
                 height: { ideal: 1080 },
               },
