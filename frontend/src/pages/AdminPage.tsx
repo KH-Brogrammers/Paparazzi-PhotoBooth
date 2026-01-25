@@ -290,6 +290,21 @@ function AdminPage() {
     }
   };
 
+  const handleSelectAllScreens = (cameraId: string) => {
+    const allScreenIds = screens.map(screen => screen.screenId);
+    setSelectedMappings(prev => ({
+      ...prev,
+      [cameraId]: allScreenIds
+    }));
+  };
+
+  const handleDeselectAllScreens = (cameraId: string) => {
+    setSelectedMappings(prev => ({
+      ...prev,
+      [cameraId]: []
+    }));
+  };
+
   const handleHardRefresh = () => {
     window.location.reload();
   };
@@ -546,6 +561,21 @@ function AdminPage() {
                       Select which screens should display images from this
                       camera:
                     </p>
+
+                    <div className="flex space-x-3 mb-4">
+                      <button
+                        onClick={() => handleSelectAllScreens(camera.deviceId)}
+                        className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded transition-colors"
+                      >
+                        ✓ Select All
+                      </button>
+                      <button
+                        onClick={() => handleDeselectAllScreens(camera.deviceId)}
+                        className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded transition-colors"
+                      >
+                        ✗ Deselect All
+                      </button>
+                    </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                       {screens.map((screen) => (
