@@ -19,7 +19,7 @@ const CameraGrid = forwardRef<HTMLDivElement, CameraGridProps>(({ cameras, camer
   };
 
   return (
-    <div ref={ref} className={`grid ${getGridClass()} gap-6 w-full`}>
+    <div ref={ref} className={`grid ${getGridClass()} w-full h-full`}>
       {cameras.map((camera, index) => (
         <CameraCard
           key={camera.deviceId}
