@@ -84,11 +84,6 @@ function CameraPage() {
         console.log('🏠 Hide QR code command received');
         setShowQrCode(false);
       });
-
-      // Emit cameras detected event for global button
-      window.dispatchEvent(new CustomEvent('cameras-detected', { 
-        detail: { cameras } 
-      }));
       
       return () => {
         socketConnection.disconnect();
