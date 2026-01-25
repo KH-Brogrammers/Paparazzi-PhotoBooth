@@ -128,13 +128,13 @@ class CollageService {
     const imageCount = imagePaths.length;
     
     // Calculate grid dimensions based on orientation
-    const { rows, cols, imageSize } = this.calculateGridForOrientation(imageCount, orientation);
+    const { rows, cols, imageWidth, imageHeight } = this.calculateGridForOrientation(imageCount, orientation);
     
     const padding = 10;
     
     // Calculate canvas dimensions
-    const canvasWidth = cols * imageSize + (cols + 1) * padding;
-    const canvasHeight = rows * imageSize + (rows + 1) * padding;
+    const canvasWidth = cols * imageWidth + (cols + 1) * padding;
+    const canvasHeight = rows * imageHeight + (rows + 1) * padding;
     
     console.log(`🎨 Creating ${orientation} ${rows}x${cols} collage (${canvasWidth}x${canvasHeight}px) from ${imageCount} images`);
 
@@ -155,13 +155,13 @@ class CollageService {
       const row = Math.floor(i / cols);
       const col = i % cols;
       
-      const x = col * imageSize + (col + 1) * padding;
-      const y = row * imageSize + (row + 1) * padding;
+      const x = col * imageWidth + (col + 1) * padding;
+      const y = row * imageHeight + (row + 1) * padding;
 
       try {
-        // Resize and process each image
+        // Resize and process each image to fit the rectangular slot
         const processedImage = await sharp(imagePaths[i])
-          .resize(imageSize, imageSize, {
+          .resize(imageWidth, imageHeight, {
             fit: 'cover',
             position: 'center'
           })
@@ -191,7 +191,7 @@ class CollageService {
   /**
    * Calculate optimal grid dimensions for given number of images and orientation
    */
-  private calculateGridForOrientation(imageCount: number, orientation: 'landscape' | 'portrait'): { rows: number; cols: number; imageSize: number } {
+  private calculateGridForOrientation(imageCount: number, orientation: 'landscape' | 'portrait'): { rows: number; cols: number; imageWidth: number; imageHeight: number } {
     const targetWidth = orientation === 'landscape' ? 1920 : 1080;
     const targetHeight = orientation === 'landscape' ? 1080 : 1920;
     
@@ -240,16 +240,14 @@ class CollageService {
       }
     }
     
-    // Calculate image size to fit target dimensions
+    // Calculate image dimensions to fit target canvas dimensions
     const padding = 10;
     const availableWidth = targetWidth - (cols + 1) * padding;
     const availableHeight = targetHeight - (rows + 1) * padding;
-    const imageSize = Math.min(
-      Math.floor(availableWidth / cols),
-      Math.floor(availableHeight / rows)
-    );
+    const imageWidth = Math.floor(availableWidth / cols);
+    const imageHeight = Math.floor(availableHeight / rows);
     
-    return { rows, cols, imageSize };
+    return { rows, cols, imageWidth, imageHeight };
   }
 
   /**
