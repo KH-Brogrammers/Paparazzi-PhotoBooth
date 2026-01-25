@@ -407,34 +407,43 @@ export class ScreenController {
       let s3Url = '';
       let s3Key = '';
       let localUrl = '';
-      let finalStorageType: 's3' | 'local' = 'local';
+      let finalStorageType: 's3' | 'local' = 's3';
 
-      // Save locally first (failsafe)
-      localUrl = await localStorageService.saveImageLocally(
-        collageImageData,
-        folderName,
-        'collage',
-        timestampNum
-      );
-
-      // Try to upload to S3
+      // Try to upload to S3 first
       if (s3Service.isConfigured()) {
         try {
           const s3Result = await localStorageService.uploadToS3WithFolder(
             collageImageData,
             folderName,
-            'collage',
+            0, // Use 0 for collage screen number -> creates screen_0_photo.jpg
             timestampNum
           );
 
           if (s3Result) {
             s3Url = s3Result.s3Url;
             s3Key = s3Result.s3Key;
-            finalStorageType = 's3';
+            console.log('✅ Collage uploaded to S3 successfully');
+          } else {
+            throw new Error('S3 upload returned null');
           }
         } catch (s3Error) {
-          console.error('S3 upload error for collage:', s3Error);
+          console.error('S3 upload error for collage, falling back to local storage:', s3Error);
+          finalStorageType = 'local';
         }
+      } else {
+        finalStorageType = 'local';
+      }
+
+      // Fallback to local storage if S3 failed or not configured
+      if (finalStorageType === 'local') {
+        const { relativePath } = await localStorageService.saveImageWithFolder(
+          collageImageData,
+          folderName,
+          0, // Use 0 for collage screen number -> creates screen_0_photo.jpg
+          timestampNum
+        );
+        localUrl = `${process.env.BACKEND_URL || 'http://localhost:8800'}/api/images/local/${relativePath}`;
+        console.log('✅ Collage saved to local storage as fallback');
       }
 
       // Save metadata to MongoDB
@@ -449,7 +458,7 @@ export class ScreenController {
         timestamp: new Date(timestampNum),
       });
 
-      console.log('🖼️ Collage uploaded successfully');
+      console.log('🖼️ Collage metadata saved to database');
 
       res.status(201).json(collageImage);
     } catch (error) {
