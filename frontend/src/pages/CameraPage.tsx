@@ -201,7 +201,7 @@ function CameraPage() {
   return (
     <div className="min-h-screen h-screen flex flex-col bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
       {/* Header - Hidden on mobile */}
-      <header className="mb-8 hidden md:block">
+      <header className="hidden md:block p-8">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between">
             <div>
