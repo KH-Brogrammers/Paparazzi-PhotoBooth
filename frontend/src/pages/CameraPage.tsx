@@ -270,7 +270,7 @@ function CameraPage() {
                       </>
                     )}
                   </svg>
-                  <span>{isCapturing ? 'Capturing...' : `Capture All Cameras (${totalCameraCount})`}</span>
+                  <span>{isCapturing ? 'Capturing...' : `Capture`}</span>
                 </button>
               </div>
             )}
