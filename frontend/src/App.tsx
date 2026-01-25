@@ -101,7 +101,6 @@ function App() {
         <Route path="/screens" element={<ScreensPage />} />
         <Route path="/admin" element={<AdminPage />} />
       </Routes>
-      <GlobalCameraSwitchButton />
     </BrowserRouter>
   );
 }
