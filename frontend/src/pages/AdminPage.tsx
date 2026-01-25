@@ -262,6 +262,33 @@ function AdminPage() {
     }
   };
 
+  const handleRenameCamera = (cameraId: string, currentLabel: string) => {
+    const newLabel = prompt("Enter new camera name:", currentLabel);
+    if (newLabel && newLabel !== currentLabel) {
+      setAllCameras(prev => 
+        prev.map(camera => 
+          camera.deviceId === cameraId 
+            ? { ...camera, label: newLabel }
+            : camera
+        )
+      );
+    }
+  };
+
+  const handleRemoveCamera = async (cameraId: string, cameraLabel: string) => {
+    if (confirm(`Remove "${cameraLabel}" from mappings?`)) {
+      try {
+        await mappingApi.delete(cameraId);
+        setAllCameras(prev => prev.filter(camera => camera.deviceId !== cameraId));
+        await loadData();
+        alert("Camera removed successfully!");
+      } catch (error) {
+        console.error("Error removing camera:", error);
+        alert("Failed to remove camera");
+      }
+    }
+  };
+
   const handleHardRefresh = () => {
     window.location.reload();
   };
@@ -462,17 +489,31 @@ function AdminPage() {
                       <h3 className="text-white font-semibold text-xl">
                         📷 {camera.label}
                       </h3>
-                      <span
-                        className={`px-3 py-1 text-sm font-bold rounded-full ${
-                          camera.role === "PRIMARY"
-                            ? "bg-green-600 text-white"
-                            : "bg-gray-600 text-gray-300"
-                        }`}
-                      >
-                        {camera.role === "PRIMARY"
-                          ? "🎯 PRIMARY"
-                          : "📷 SECONDARY"}
-                      </span>
+                      <div className="flex items-center space-x-3">
+                        <span
+                          className={`px-3 py-1 text-sm font-bold rounded-full ${
+                            camera.role === "PRIMARY"
+                              ? "bg-green-600 text-white"
+                              : "bg-gray-600 text-gray-300"
+                          }`}
+                        >
+                          {camera.role === "PRIMARY"
+                            ? "🎯 PRIMARY"
+                            : "📷 SECONDARY"}
+                        </span>
+                        <button
+                          onClick={() => handleRenameCamera(camera.deviceId, camera.label)}
+                          className="text-blue-400 hover:text-blue-300 text-sm px-2 py-1 rounded"
+                        >
+                          ✏️ Rename
+                        </button>
+                        <button
+                          onClick={() => handleRemoveCamera(camera.deviceId, camera.label)}
+                          className="text-red-400 hover:text-red-300 text-sm px-2 py-1 rounded"
+                        >
+                          🗑️ Remove
+                        </button>
+                      </div>
                     </div>
                     <p className="text-gray-400 text-sm mb-4">
                       Select which screens should display images from this
