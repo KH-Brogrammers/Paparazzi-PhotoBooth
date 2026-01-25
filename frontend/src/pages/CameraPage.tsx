@@ -66,10 +66,12 @@ function CameraPage() {
       });
       
       // Register cameras with admin panel
+      console.log('📷 Registering cameras with admin panel:', cameras);
       socketConnection.emit('cameras:register', cameras);
       
       // Listen for admin requests for camera info
       socketConnection.on('admin:request-cameras', () => {
+        console.log('📋 Admin requested cameras, sending:', cameras);
         socketConnection.emit('cameras:register', cameras);
       });
 

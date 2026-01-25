@@ -68,15 +68,20 @@ function AdminPage() {
         // Merge cameras from different devices, avoiding duplicates
         const merged = [...prev];
         camerasData.forEach(newCamera => {
-          if (!merged.find(cam => cam.deviceId === newCamera.deviceId)) {
-            merged.push(newCamera);
+          // Remove any existing camera with same deviceId to avoid duplicates
+          const existingIndex = merged.findIndex(cam => cam.deviceId === newCamera.deviceId);
+          if (existingIndex >= 0) {
+            merged[existingIndex] = newCamera; // Update existing
+          } else {
+            merged.push(newCamera); // Add new
           }
         });
         return merged;
       });
     });
     
-    // Request cameras from all connected devices
+    // Clear existing cameras and request fresh data
+    setAllCameras([]);
     socket.emit('admin:request-cameras');
     
     return () => {
@@ -301,9 +306,21 @@ function AdminPage() {
 
         {/* Mapping Section */}
         <section className="mb-8">
-          <h2 className="text-2xl font-bold text-white mb-4">
-            Camera to Screen Mapping
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold text-white">
+              Camera to Screen Mapping
+            </h2>
+            <button
+              onClick={() => {
+                setAllCameras([]);
+                const socket = socketClient.connect();
+                socket.emit('admin:request-cameras');
+              }}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+            >
+              🔄 Refresh Cameras
+            </button>
+          </div>
           
           {allCameras.length === 0 ? (
             <div className="bg-gray-800 border-2 border-gray-700 rounded-lg p-8 text-center">
