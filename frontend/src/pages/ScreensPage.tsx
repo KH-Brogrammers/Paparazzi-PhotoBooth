@@ -288,7 +288,7 @@ function ScreensPage() {
           <img
             src={currentImage.imageUrl}
             alt={`${currentImage.isCollage ? 'Collage' : `Captured from ${currentImage.cameraLabel}`}`}
-            className="max-w-full max-h-full object-cover origin-top"
+            className={`w-full h-full ${currentImage.isCollage ? 'object-contain' : 'object-cover'}`}
             onError={(e) => {
               console.error("Image failed to load:", currentImage.imageUrl);
               console.error("Error details:", e);
