@@ -100,7 +100,9 @@ function ScreensPage() {
         (s: any) => s.screenId === screenInfo.screenId,
       );
       if (thisScreen) {
-        setIsCollageScreen(thisScreen?.isCollageScreen || false);
+        const isCollage = thisScreen?.isCollageScreen || false;
+        setIsCollageScreen(isCollage);
+        console.log(`🖼️ Screen ${screenInfo.screenId} is collage screen: ${isCollage}`);
       }
 
       setIsRegistered(true);
@@ -111,30 +113,6 @@ function ScreensPage() {
 
       // Register with socket server
       socket.emit("register:screen", screenInfo.screenId);
-
-      // Listen for captured images
-      socket.on("image:captured", (imageData: ImageData) => {
-        console.log("📸 Received image:", imageData);
-        
-        // Check if this is a collage image
-        if (imageData.isCollage) {
-          // Only show collage on collage screens
-          if (thisScreen?.isCollageScreen) {
-            setCurrentImage(imageData);
-            console.log(`🖼️ Displaying collage (${imageData.orientation}) on collage screen`);
-          }
-        } else {
-          // Only show regular images on non-collage screens
-          if (!thisScreen?.isCollageScreen) {
-            setCurrentImage(imageData);
-
-            // After displaying the image, capture what's shown on screen and send back
-            setTimeout(() => {
-              captureScreenDisplay(imageData);
-            }, 100); // Small delay to ensure image is rendered
-          }
-        }
-      });
 
       // Listen for collage updates
       socket.on(
@@ -147,7 +125,7 @@ function ScreensPage() {
             console.log(
               `🖼️ This screen is ${newCollageState ? "now" : "no longer"} the collage screen`,
             );
-            setIsCollageScreen(newCollageState);
+            setIsCollageScreen(newCollageState); // Update the state
             if (!newCollageState) {
               setCurrentImage(null); // Clear current image when no longer collage screen
             }
@@ -197,6 +175,41 @@ function ScreensPage() {
     };
   }, []);
 
+  // Re-setup socket listeners when isCollageScreen changes
+  useEffect(() => {
+    if (socketRef.current && isRegistered) {
+      // Remove old listener
+      socketRef.current.off("image:captured");
+      
+      // Add new listener with current state
+      const handleImageCaptured = (imageData: ImageData) => {
+        console.log("📸 Received image:", imageData);
+        console.log("🖼️ Current screen isCollageScreen:", isCollageScreen);
+        console.log("🖼️ Image isCollage:", imageData.isCollage);
+        
+        if (imageData.isCollage) {
+          if (isCollageScreen) {
+            setCurrentImage(imageData);
+            console.log(`🖼️ Displaying collage (${imageData.orientation}) on collage screen`);
+          } else {
+            console.log(`🖼️ Ignoring collage image - this is not a collage screen`);
+          }
+        } else {
+          if (!isCollageScreen) {
+            setCurrentImage(imageData);
+            setTimeout(() => {
+              captureScreenDisplay(imageData);
+            }, 100);
+          } else {
+            console.log(`📸 Ignoring regular image - this is a collage screen`);
+          }
+        }
+      };
+
+      socketRef.current.on("image:captured", handleImageCaptured);
+    }
+  }, [isCollageScreen, isRegistered]);
+
   if (error && !isRegistered) {
     return (
       <div className="flex flex-col items-center relative justify-center h-full w-full p-6">
@@ -244,6 +257,13 @@ function ScreensPage() {
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-white">
+      {/* Collage Screen Indicator */}
+      {isCollageScreen && showDetails && (
+        <div className="absolute top-4 left-4 bg-purple-600 text-white px-4 py-2 rounded-lg text-lg font-bold z-50">
+          🖼️ COLLAGE SCREEN
+        </div>
+      )}
+
       {/* Screen Info Overlay - Only show when toggled */}
       {showDetails && (
         <div className="absolute top-4 right-4 bg-black/70 text-white px-4 py-2 rounded-lg text-sm z-50">
@@ -272,6 +292,13 @@ function ScreensPage() {
             src={currentImage.imageUrl}
             alt={`${currentImage.isCollage ? 'Collage' : `Captured from ${currentImage.cameraLabel}`}`}
             className="max-w-full max-h-full object-cover origin-top"
+            onError={(e) => {
+              console.error("Image failed to load:", currentImage.imageUrl);
+              console.error("Error details:", e);
+            }}
+            onLoad={() => {
+              console.log("Image loaded successfully:", currentImage.imageUrl);
+            }}
           />
 
           {/* Image Info - Only show when toggled */}
@@ -296,6 +323,15 @@ function ScreensPage() {
               </p>
             </div>
           )}
+        </div>
+      ) : isCollageScreen ? (
+        <div className="w-full relative h-full flex justify-center items-center bg-white">
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50">
+            <img src="/logo.png" alt="" className="lg:w-54 w-32" />
+          </div>
+          <div className="text-gray-600 text-2xl">
+            Waiting for collage...
+          </div>
         </div>
       ) : (
         <LogoPlaceholder />
