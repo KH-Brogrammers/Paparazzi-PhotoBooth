@@ -307,6 +307,15 @@ function ScreensPage() {
             alt="Logo"
             className="absolute top-4 left-1/2 transform -translate-x-1/2 w-48 lg:w-68 z-10"
           />
+          
+          {/* Bottom logo only for collage screens */}
+          {currentImage.isCollage && (
+            <img
+              src="/logo.png"
+              alt="Logo"
+              className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-32 lg:w-48 z-10"
+            />
+          )}
 
           {/* Image Info - Only show when toggled */}
           {showDetails && (
