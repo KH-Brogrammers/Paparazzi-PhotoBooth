@@ -5,6 +5,7 @@ import { CapturedImage } from '../models/capturedImage.model';
 import { getSocketService } from '../services/socket.service';
 import { localStorageService } from '../services/localStorage.service';
 import { s3Service } from '../services/s3.service';
+import { SessionService } from '../services/session.service';
 
 export class ScreenController {
   // Register or update a screen
@@ -175,13 +176,16 @@ export class ScreenController {
         return;
       }
 
+      const groupId = mapping.groupId || 'Group 1';
       const screenIndex = mapping.screenIds.indexOf(screenId);
       const screenNumber = screenIndex + 1;
 
-      // Create folder structure: HH:MM:SS_DD/MM/YYYY/cameraId
-      const date = new Date(timestampNum);
-      const timeFolder = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}_${date.getDate().toString().padStart(2, '0')}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getFullYear()}`;
+      // Use the same group session logic as image controller
+      const session = SessionService.getGroupSession(groupId);
+      const timeFolder = session.folder;
       const folderName = `${timeFolder}/${cameraId}`;
+
+      console.log(`📁 Using group session for screen capture ${cameraId}: ${timeFolder}`);
 
       // Save screen capture to storage
       const { relativePath } = await localStorageService.saveImageWithFolder(
@@ -388,7 +392,9 @@ export class ScreenController {
     }
   }
 
-  // Upload collage to S3
+  // DEPRECATED: Upload collage to S3 - This method is not used anymore
+  // Collages are now handled by the collage service with proper group sessions
+  /*
   async uploadCollage(req: Request, res: Response): Promise<void> {
     try {
       const { collageImageData, timestamp } = req.body;
@@ -469,6 +475,7 @@ export class ScreenController {
       });
     }
   }
+  */
 }
 
 export const screenController = new ScreenController();

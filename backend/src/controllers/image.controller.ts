@@ -6,41 +6,18 @@ import { getSocketService } from "../services/socket.service";
 import { localStorageService } from "../services/localStorage.service";
 import { s3Service } from "../services/s3.service";
 import { collageService } from "../services/collage.service";
+import { SessionService } from "../services/session.service";
 import QRCode from "qrcode";
 import * as fs from "fs";
 import * as path from "path";
 
 export class ImageController {
-  private static groupSessions: Map<
-    string,
-    { timestamp: number; folder: string }
-  > = new Map();
-  private static readonly SESSION_TIMEOUT = 10000; // 10 seconds
-
   // Get or create group session
   private getGroupSession(groupId: string): {
     timestamp: number;
     folder: string;
   } {
-    const now = Date.now();
-    const existing = ImageController.groupSessions.get(groupId);
-
-    // If no session or session is too old, create new one
-    if (
-      !existing ||
-      now - existing.timestamp > ImageController.SESSION_TIMEOUT
-    ) {
-      const date = new Date(now);
-      const timeFolder = `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}:${date.getSeconds().toString().padStart(2, "0")}_${date.getDate().toString().padStart(2, "0")}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getFullYear()}_${groupId}`;
-
-      const session = { timestamp: now, folder: timeFolder };
-      ImageController.groupSessions.set(groupId, session);
-      console.log(`📁 Created new session for ${groupId}: ${timeFolder}`);
-      return session;
-    }
-
-    console.log(`📁 Using existing session for ${groupId}: ${existing.folder}`);
-    return existing;
+    return SessionService.getGroupSession(groupId);
   }
 
   // Save captured image with both S3 and local storage
