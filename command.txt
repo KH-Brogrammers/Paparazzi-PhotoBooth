@@ -2,7 +2,7 @@ backend
 
 npx tsc
 pm2 delete all
-pm2 start dist/index.js -i max --name backend
+pm2 start src/index.js -i max --name backend
 
 
 pm2 stop all
@@ -18,6 +18,14 @@ sudo lsof -i :5173
 sudo kill -9 <PID>
 
 
-pm2 start npm --name frontend -- run dev
+pm2 start npm --name frontend -- run dev -- --host 0.0.0.0
+
 pm2 save
 pm2 logs frontend
+docker network connect paparazzi-network mongodb
+
+cd ~/Paparazzi-PhotoBooth/backend
+docker run -d -p 8800:8800 -v ~/Paparazzi-PhotoBooth/backend:/app -w /app --name paparazzi-backend --network paparazzi-network node:24 npm run dev
+
+cd ~/Paparazzi-PhotoBooth/frontend
+docker run -d -p 5173:5173 -v ~/Paparazzi-PhotoBooth/frontend:/app -w /app --name paparazzi-frontend --network paparazzi-network node:24 npm run dev -- --host
