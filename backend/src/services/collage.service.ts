@@ -180,35 +180,8 @@ class CollageService {
       }
     }
 
-    // Add logo at the bottom center
-    try {
-      const logoPath = path.join(process.cwd(), '../frontend/public/logo.png');
-      if (fs.existsSync(logoPath)) {
-        const logoBuffer = await sharp(logoPath)
-          .resize(Math.min(200, canvasWidth - 40), logoHeight - 20, {
-            fit: 'inside',
-            withoutEnlargement: true
-          })
-          .toBuffer();
-
-        // Get logo dimensions after resize
-        const logoMetadata = await sharp(logoBuffer).metadata();
-        const logoX = Math.floor((canvasWidth - (logoMetadata.width || 0)) / 2);
-        const logoY = canvasHeight - logoHeight + 10;
-
-        compositeOperations.push({
-          input: logoBuffer,
-          top: logoY,
-          left: logoX
-        });
-        
-        console.log(`🏷️ Logo added to collage at position (${logoX}, ${logoY})`);
-      } else {
-        console.warn(`⚠️ Logo not found at ${logoPath}`);
-      }
-    } catch (logoError) {
-      console.error('Error adding logo to collage:', logoError);
-    }
+    // Logo overlay disabled for collages - collages will be generated without logo
+    // The logo is still displayed in the UI header but not burned into collage images
 
     // Composite all images onto the canvas
     const collageBuffer = await canvas
