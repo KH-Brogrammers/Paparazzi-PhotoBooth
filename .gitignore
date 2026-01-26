@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 photos
+Paparazzi-PhotoBooth_accessKeys.csv
+Paparazzi-PhotoBooth_credentials.csv
+Paparazzi-PhotoBooth.pem
+creed
+.env
+backend/.env
 
 # Editor directories and files
 .vscode/*
