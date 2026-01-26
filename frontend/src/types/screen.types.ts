@@ -41,6 +41,8 @@ export interface ImageData {
   imageUrl: string;
   storageType: 's3' | 'local';
   timestamp: Date;
+  isCollage?: boolean;
+  orientation?: 'landscape' | 'portrait';
 }
 
 export interface ScreenCaptureData {

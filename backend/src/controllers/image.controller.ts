@@ -40,11 +40,16 @@ export class ImageController {
         return;
       }
 
-      // Filter to only connected screens
+      // Filter to only connected screens and exclude collage screens
       const socketService = getSocketService();
       const connectedScreenIds = socketService.getConnectedScreens();
+      
+      // Get all collage screens to exclude them from regular image distribution
+      const collageScreens = await Screen.find({ isCollageScreen: true });
+      const collageScreenIds = collageScreens.map(screen => screen.screenId);
+      
       const activeScreenIds = mapping.screenIds.filter(screenId => 
-        connectedScreenIds.includes(screenId)
+        connectedScreenIds.includes(screenId) && !collageScreenIds.includes(screenId)
       );
 
       if (activeScreenIds.length === 0) {
@@ -193,6 +198,38 @@ export class ImageController {
         console.log(`🎨 Collage generated for folder: ${folderName}`);
         if (collageResult.s3Urls && collageResult.s3Urls.length > 0) {
           console.log(`☁️ Collages uploaded to S3`);
+        }
+
+        // Emit collage to collage screens
+        const collageScreens = await Screen.find({ isCollageScreen: true });
+        const connectedCollageScreens = collageScreens.filter(screen => 
+          connectedScreenIds.includes(screen.screenId)
+        );
+
+        if (connectedCollageScreens.length > 0) {
+          for (const screen of connectedCollageScreens) {
+            // Determine orientation based on screen resolution
+            const isLandscape = screen.resolution && screen.resolution.width >= screen.resolution.height;
+            const orientation = isLandscape ? 'landscape' : 'portrait';
+            
+            // Create collage URL
+            const backendUrl = process.env.BACKEND_URL || 'http://localhost:8800';
+            const collageUrl = `${backendUrl}/api/images/collage/${encodeURIComponent(timeFolder)}?orientation=${orientation}`;
+            
+            // Emit collage to this screen
+            socketService.emitImageToScreens([screen.screenId], {
+              imageId: `collage_${timestampNum}`,
+              cameraId: 'collage',
+              cameraLabel: 'Collage',
+              imageUrl: collageUrl,
+              storageType: 'local',
+              timestamp: timestampNum,
+              isCollage: true,
+              orientation
+            });
+            
+            console.log(`🖼️ Collage (${orientation}) sent to screen: ${screen.screenId}`);
+          }
         }
       } catch (collageError) {
         console.error('Error generating collage:', collageError);

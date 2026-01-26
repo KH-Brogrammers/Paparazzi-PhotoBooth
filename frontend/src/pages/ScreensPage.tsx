@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { socketClient } from "../services/socket.service";
 import { screenApi } from "../services/backend-api.service";
 import { detectScreens, getCurrentScreenInfo } from "../utils/screenDetection";
-import { type ImageData, type ScreenCaptureData } from "../types/screen.types";
+import { type ImageData } from "../types/screen.types";
 import LogoPlaceholder from "../components/LogoPlaceholder";
 
 function ScreensPage() {
@@ -14,11 +14,7 @@ function ScreensPage() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [isCollageScreen, setIsCollageScreen] = useState(false);
-  const [screenCaptures, setScreenCaptures] = useState<
-    Map<string, ScreenCaptureData>
-  >(new Map());
   const socketRef = useRef<any>(null);
-  const collageCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const captureScreenDisplay = async (originalImageData: ImageData) => {
     try {
@@ -56,116 +52,6 @@ function ScreensPage() {
       console.log("📸 Screen display captured and saved");
     } catch (error) {
       console.error("Error capturing screen display:", error);
-    }
-  };
-
-  const createCollage = async () => {
-    const canvas = collageCanvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    // Get all screen captures and sort by screen number
-    const captures = Array.from(screenCaptures.values()).sort((a, b) => {
-      // Extract screen number from screenId (assuming format like "screen-1", "screen-2")
-      const getScreenNumber = (id: string) => {
-        const match = id.match(/screen-(\d+)/);
-        return match ? parseInt(match[1]) : 0;
-      };
-      return getScreenNumber(a.screenId) - getScreenNumber(b.screenId);
-    });
-
-    if (captures.length === 0) return;
-
-    // Load all images first and calculate dimensions
-    const loadedImages: {
-      img: HTMLImageElement;
-      capture: ScreenCaptureData;
-      width: number;
-      height: number;
-    }[] = [];
-
-    for (const capture of captures) {
-      try {
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-
-        await new Promise((resolve, reject) => {
-          img.onload = () => {
-            let width = img.width;
-            let height = img.height;
-
-            // Adjust dimensions for rotation
-            if (capture.rotation === 90 || capture.rotation === -90) {
-              // Swap width and height for 90° rotations
-              [width, height] = [height, width];
-            }
-
-            loadedImages.push({ img, capture, width, height });
-            resolve(null);
-          };
-          img.onerror = reject;
-          img.src = capture.imageUrl;
-        });
-      } catch (error) {
-        console.error("Error loading image for collage:", error);
-      }
-    }
-
-    if (loadedImages.length === 0) return;
-
-    // Calculate total width and max height for canvas
-    const totalWidth = loadedImages.reduce((sum, item) => sum + item.width, 0);
-    const maxHeight = Math.max(...loadedImages.map((item) => item.height));
-
-    // Set canvas size
-    canvas.width = totalWidth;
-    canvas.height = maxHeight;
-
-    // Fill white background
-    ctx.fillStyle = "white";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Draw each image horizontally
-    let currentX = 0;
-
-    for (const { img, capture, width, height } of loadedImages) {
-      try {
-        // Save current context
-        ctx.save();
-
-        // Move to current X position
-        ctx.translate(currentX, 0);
-
-        // Apply rotation if needed
-        if (capture.rotation === 90) {
-          ctx.rotate((90 * Math.PI) / 180);
-          ctx.drawImage(img, 0, -width, height, width);
-        } else if (capture.rotation === -90) {
-          ctx.rotate((-90 * Math.PI) / 180);
-          ctx.drawImage(img, -height, 0, height, width);
-        } else {
-          ctx.drawImage(img, 0, 0, width, height);
-        }
-
-        // Restore context
-        ctx.restore();
-
-        // Move X position for next image
-        currentX += width;
-      } catch (error) {
-        console.error("Error drawing image in collage:", error);
-      }
-    }
-
-    // Upload collage to S3
-    try {
-      const collageImageData = canvas.toDataURL("image/jpeg", 0.9);
-      await screenApi.uploadCollage(collageImageData, Date.now());
-      console.log("🖼️ Collage uploaded successfully");
-    } catch (error) {
-      console.error("Error uploading collage:", error);
     }
   };
 
@@ -226,28 +112,27 @@ function ScreensPage() {
       // Register with socket server
       socket.emit("register:screen", screenInfo.screenId);
 
-      // Listen for captured images (for regular screens)
+      // Listen for captured images
       socket.on("image:captured", (imageData: ImageData) => {
-        if (!thisScreen?.isCollageScreen) {
-          console.log("📸 Received image:", imageData);
-          setCurrentImage(imageData);
+        console.log("📸 Received image:", imageData);
+        
+        // Check if this is a collage image
+        if (imageData.isCollage) {
+          // Only show collage on collage screens
+          if (thisScreen?.isCollageScreen) {
+            setCurrentImage(imageData);
+            console.log(`🖼️ Displaying collage (${imageData.orientation}) on collage screen`);
+          }
+        } else {
+          // Only show regular images on non-collage screens
+          if (!thisScreen?.isCollageScreen) {
+            setCurrentImage(imageData);
 
-          // After displaying the image, capture what's shown on screen and send back
-          setTimeout(() => {
-            captureScreenDisplay(imageData);
-          }, 100); // Small delay to ensure image is rendered
-        }
-      });
-
-      // Listen for screen captures (for collage screen)
-      socket.on("screen:capture-ready", (captureData: ScreenCaptureData) => {
-        if (thisScreen?.isCollageScreen) {
-          console.log("🖼️ Received screen capture for collage:", captureData);
-          setScreenCaptures((prev) => {
-            const newMap = new Map(prev);
-            newMap.set(captureData.screenId, captureData);
-            return newMap;
-          });
+            // After displaying the image, capture what's shown on screen and send back
+            setTimeout(() => {
+              captureScreenDisplay(imageData);
+            }, 100); // Small delay to ensure image is rendered
+          }
         }
       });
 
@@ -263,10 +148,8 @@ function ScreensPage() {
               `🖼️ This screen is ${newCollageState ? "now" : "no longer"} the collage screen`,
             );
             setIsCollageScreen(newCollageState);
-            if (newCollageState) {
-              setCurrentImage(null); // Clear current image when becoming collage
-            } else {
-              setScreenCaptures(new Map()); // Clear collage data when becoming regular screen
+            if (!newCollageState) {
+              setCurrentImage(null); // Clear current image when no longer collage screen
             }
           }
         },
@@ -313,13 +196,6 @@ function ScreensPage() {
       }
     };
   }, []);
-
-  // Create collage when screen captures update
-  useEffect(() => {
-    if (isCollageScreen && screenCaptures.size > 0) {
-      createCollage();
-    }
-  }, [screenCaptures, isCollageScreen]);
 
   if (error && !isRegistered) {
     return (
@@ -377,6 +253,9 @@ function ScreensPage() {
           <p>
             <strong>Label:</strong> {screenLabel}
           </p>
+          <p>
+            <strong>Type:</strong> {isCollageScreen ? "Collage Screen" : "Regular Screen"}
+          </p>
           <p className={`${currentImage ? "text-green-400" : "text-gray-400"}`}>
             {currentImage ? "● Active" : "○ Waiting"}
           </p>
@@ -384,32 +263,14 @@ function ScreensPage() {
       )}
 
       {/* Display captured image or logo */}
-      {isCollageScreen ? (
-        // Collage Screen Display
-        <div className="w-full relative h-full flex justify-center items-center bg-white">
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50">
-            <img src="/logo.png" alt="" className="lg:w-54 w-32" />
-          </div>
-          {screenCaptures.size > 0 ? (
-            <canvas
-              ref={collageCanvasRef}
-              className="max-w-full max-h-full object-contain"
-            />
-          ) : (
-            <div className="text-gray-600 text-2xl">
-              Waiting for screen captures...
-            </div>
-          )}
-        </div>
-      ) : currentImage ? (
-        // Regular Screen Display
+      {currentImage ? (
         <div className="w-full relative h-full flex justify-center bg-white">
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50">
             <img src="/logo.png" alt="" className="lg:w-54 w-32" />
           </div>
           <img
             src={currentImage.imageUrl}
-            alt={`Captured from ${currentImage.cameraLabel}`}
+            alt={`${currentImage.isCollage ? 'Collage' : `Captured from ${currentImage.cameraLabel}`}`}
             className="max-w-full max-h-full object-cover origin-top"
           />
 
@@ -417,8 +278,18 @@ function ScreensPage() {
           {showDetails && (
             <div className="absolute bottom-4 left-4 bg-black/70 text-white px-4 py-2 rounded-lg text-sm">
               <p>
-                <strong>Camera:</strong> {currentImage.cameraLabel}
+                <strong>Type:</strong> {currentImage.isCollage ? 'Collage' : 'Camera Image'}
               </p>
+              {!currentImage.isCollage && (
+                <p>
+                  <strong>Camera:</strong> {currentImage.cameraLabel}
+                </p>
+              )}
+              {currentImage.isCollage && currentImage.orientation && (
+                <p>
+                  <strong>Orientation:</strong> {currentImage.orientation}
+                </p>
+              )}
               <p>
                 <strong>Time:</strong>{" "}
                 {new Date(currentImage.timestamp).toLocaleTimeString()}
