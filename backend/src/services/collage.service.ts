@@ -139,6 +139,12 @@ class CollageService {
     
     console.log(`🎨 Creating ${orientation} ${rows}x${cols} collage (${canvasWidth}x${canvasHeight}px) from ${imageCount} images`);
 
+    // For 6 images, separate landscape and portrait images
+    let orderedImagePaths = imagePaths;
+    if (imageCount === 6) {
+      orderedImagePaths = await this.orderImagesForSixImageCollage(imagePaths, orientation);
+    }
+
     // Create white background
     const canvas = sharp({
       create: {
@@ -152,7 +158,7 @@ class CollageService {
     // Prepare composite operations
     const compositeOperations: any[] = [];
 
-    for (let i = 0; i < imagePaths.length; i++) {
+    for (let i = 0; i < orderedImagePaths.length; i++) {
       const row = Math.floor(i / cols);
       const col = i % cols;
       
@@ -161,7 +167,7 @@ class CollageService {
 
       try {
         // Resize and process each image to fit the rectangular slot
-        const processedImage = await sharp(imagePaths[i])
+        const processedImage = await sharp(orderedImagePaths[i])
           .resize(imageWidth, imageHeight, {
             fit: 'cover',
             position: 'center'
@@ -175,7 +181,7 @@ class CollageService {
           left: x
         });
       } catch (error) {
-        console.error(`Error processing image ${imagePaths[i]}:`, error);
+        console.error(`Error processing image ${orderedImagePaths[i]}:`, error);
         // Skip this image and continue
       }
     }
@@ -190,6 +196,65 @@ class CollageService {
       .toBuffer();
 
     return collageBuffer;
+  }
+
+  /**
+   * Order images for 6-image collage, placing landscape images in center positions
+   */
+  private async orderImagesForSixImageCollage(imagePaths: string[], orientation: 'landscape' | 'portrait'): Promise<string[]> {
+    // Determine image orientations
+    const imageOrientations: { path: string; isLandscape: boolean }[] = [];
+    
+    for (const imagePath of imagePaths) {
+      try {
+        const metadata = await sharp(imagePath).metadata();
+        const isLandscape = (metadata.width || 0) > (metadata.height || 0);
+        imageOrientations.push({ path: imagePath, isLandscape });
+      } catch (error) {
+        console.error(`Error reading image metadata for ${imagePath}:`, error);
+        // If we can't read metadata, assume portrait
+        imageOrientations.push({ path: imagePath, isLandscape: false });
+      }
+    }
+
+    // Separate landscape and portrait images
+    const landscapeImages = imageOrientations.filter(img => img.isLandscape).map(img => img.path);
+    const portraitImages = imageOrientations.filter(img => !img.isLandscape).map(img => img.path);
+
+    console.log(`📐 6-image collage: ${landscapeImages.length} landscape, ${portraitImages.length} portrait`);
+
+    // Define center positions based on collage orientation
+    // Landscape collage (2×3): positions [1, 4] are center
+    // Portrait collage (3×2): positions [2, 3] are center (middle row)
+    const centerPositions = orientation === 'landscape' ? [1, 4] : [2, 3];
+    
+    // Create ordered array with 6 positions
+    const orderedPaths: string[] = new Array(6);
+    
+    // Place landscape images in center positions
+    for (let i = 0; i < Math.min(landscapeImages.length, centerPositions.length); i++) {
+      orderedPaths[centerPositions[i]] = landscapeImages[i];
+    }
+    
+    // Fill remaining positions with portrait images
+    let portraitIndex = 0;
+    for (let i = 0; i < 6; i++) {
+      if (!orderedPaths[i] && portraitIndex < portraitImages.length) {
+        orderedPaths[i] = portraitImages[portraitIndex];
+        portraitIndex++;
+      }
+    }
+    
+    // If there are any remaining landscape images (more than 2), add them to remaining slots
+    let landscapeIndex = centerPositions.length;
+    for (let i = 0; i < 6; i++) {
+      if (!orderedPaths[i] && landscapeIndex < landscapeImages.length) {
+        orderedPaths[i] = landscapeImages[landscapeIndex];
+        landscapeIndex++;
+      }
+    }
+    
+    return orderedPaths;
   }
 
   /**
@@ -295,7 +360,7 @@ class CollageService {
   /**
    * Generate collage for all folders that don't have one
    */
-  async generateMissingCollages(): Promise<void> {
+  async  generateMissingCollages(): Promise<void> {
     try {
       const folders = this.getAllFolders();
       

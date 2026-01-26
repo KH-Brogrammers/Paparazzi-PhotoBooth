@@ -9,7 +9,7 @@ export class SessionService {
     // If no session or session is too old, create new one
     if (!existing || now - existing.timestamp > this.SESSION_TIMEOUT) {
       const date = new Date(now);
-      const timeFolder = `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}:${date.getSeconds().toString().padStart(2, "0")}_${date.getDate().toString().padStart(2, "0")}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getFullYear()}_${groupId}`;
+      const timeFolder = `${date.getHours().toString().padStart(2, "0")}-${date.getMinutes().toString().padStart(2, "0")}-${date.getSeconds().toString().padStart(2, "0")}_${date.getDate().toString().padStart(2, "0")}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getFullYear()}_${groupId}`;
 
       const session = { timestamp: now, folder: timeFolder };
       this.groupSessions.set(groupId, session);

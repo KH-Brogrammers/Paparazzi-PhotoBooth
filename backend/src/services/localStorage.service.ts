@@ -74,9 +74,9 @@ class LocalStorageService {
   }
 
   generateFolderName(timestamp: number): string {
-    // Create folder structure: HH:MM:SS_DD-MM-YYYY
+    // Create folder structure: HH-MM-SS_DD-MM-YYYY (using dashes instead of colons for Windows compatibility)
     const date = new Date(timestamp);
-    const timeFolder = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}_${date.getDate().toString().padStart(2, '0')}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getFullYear()}`;
+    const timeFolder = `${date.getHours().toString().padStart(2, '0')}-${date.getMinutes().toString().padStart(2, '0')}-${date.getSeconds().toString().padStart(2, '0')}_${date.getDate().toString().padStart(2, '0')}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getFullYear()}`;
     return timeFolder;
   }
 
