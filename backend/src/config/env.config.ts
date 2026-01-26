@@ -11,7 +11,7 @@ export const config = {
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
     s3BucketName: process.env.AWS_S3_BUCKET_NAME || '',
   },
-  imageStoragePath: process.env.IMAGE_STORAGE_PATH || 'D:\\Brogrammers\\Photo-Shoot\\images',
+  imageStoragePath: process.env.IMAGE_STORAGE_PATH || 'D:\\Brogrammers\\Photo-Shoot\\photos',
   backend_url: process.env.BACKEND_URL || 'http://localhost:8800',
   backend_port: process.env.BACKEND_PORT || 8800,
   frontend_url: process.env.FRONTEND_URL || 'http://localhost:5173',

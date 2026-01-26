@@ -14,7 +14,9 @@ function ScreensPage() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [isCollageScreen, setIsCollageScreen] = useState(false);
-  const [screenCaptures, setScreenCaptures] = useState<Map<string, ScreenCaptureData>>(new Map());
+  const [screenCaptures, setScreenCaptures] = useState<
+    Map<string, ScreenCaptureData>
+  >(new Map());
   const socketRef = useRef<any>(null);
   const collageCanvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -64,76 +66,106 @@ function ScreensPage() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Get all screen captures
-    const captures = Array.from(screenCaptures.values());
-    if (captures.length === 0) return;
-
-    // Calculate canvas size based on positions
-    let maxX = 0;
-    let maxY = 0;
-
-    captures.forEach((capture) => {
-      const pos = capture.position || { x: 0, y: 0, width: 800, height: 600 };
-      const right = pos.x + (pos.width || 800);
-      const bottom = pos.y + (pos.height || 600);
-      if (right > maxX) maxX = right;
-      if (bottom > maxY) maxY = bottom;
+    // Get all screen captures and sort by screen number
+    const captures = Array.from(screenCaptures.values()).sort((a, b) => {
+      // Extract screen number from screenId (assuming format like "screen-1", "screen-2")
+      const getScreenNumber = (id: string) => {
+        const match = id.match(/screen-(\d+)/);
+        return match ? parseInt(match[1]) : 0;
+      };
+      return getScreenNumber(a.screenId) - getScreenNumber(b.screenId);
     });
 
-    // Set canvas size
-    canvas.width = maxX || 1920;
-    canvas.height = maxY || 1080;
+    if (captures.length === 0) return;
 
-    // Fill white background
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Load all images first and calculate dimensions
+    const loadedImages: {
+      img: HTMLImageElement;
+      capture: ScreenCaptureData;
+      width: number;
+      height: number;
+    }[] = [];
 
-    // Draw each screen capture
     for (const capture of captures) {
       try {
         const img = new Image();
-        img.crossOrigin = 'anonymous';
-        
+        img.crossOrigin = "anonymous";
+
         await new Promise((resolve, reject) => {
           img.onload = () => {
-            const pos = capture.position || { x: 0, y: 0, width: img.width, height: img.height };
-            
-            // Save current context
-            ctx.save();
-            
-            // Move to position
-            ctx.translate(pos.x, pos.y);
-            
-            // Apply rotation if needed
-            if (capture.rotation === 90) {
-              ctx.rotate((90 * Math.PI) / 180);
-              ctx.drawImage(img, 0, -pos.width, pos.height, pos.width);
-            } else if (capture.rotation === -90) {
-              ctx.rotate((-90 * Math.PI) / 180);
-              ctx.drawImage(img, -pos.height, 0, pos.height, pos.width);
-            } else {
-              ctx.drawImage(img, 0, 0, pos.width, pos.height);
+            let width = img.width;
+            let height = img.height;
+
+            // Adjust dimensions for rotation
+            if (capture.rotation === 90 || capture.rotation === -90) {
+              // Swap width and height for 90° rotations
+              [width, height] = [height, width];
             }
-            
-            // Restore context
-            ctx.restore();
+
+            loadedImages.push({ img, capture, width, height });
             resolve(null);
           };
           img.onerror = reject;
           img.src = capture.imageUrl;
         });
       } catch (error) {
-        console.error('Error drawing image in collage:', error);
+        console.error("Error loading image for collage:", error);
+      }
+    }
+
+    if (loadedImages.length === 0) return;
+
+    // Calculate total width and max height for canvas
+    const totalWidth = loadedImages.reduce((sum, item) => sum + item.width, 0);
+    const maxHeight = Math.max(...loadedImages.map((item) => item.height));
+
+    // Set canvas size
+    canvas.width = totalWidth;
+    canvas.height = maxHeight;
+
+    // Fill white background
+    ctx.fillStyle = "white";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw each image horizontally
+    let currentX = 0;
+
+    for (const { img, capture, width, height } of loadedImages) {
+      try {
+        // Save current context
+        ctx.save();
+
+        // Move to current X position
+        ctx.translate(currentX, 0);
+
+        // Apply rotation if needed
+        if (capture.rotation === 90) {
+          ctx.rotate((90 * Math.PI) / 180);
+          ctx.drawImage(img, 0, -width, height, width);
+        } else if (capture.rotation === -90) {
+          ctx.rotate((-90 * Math.PI) / 180);
+          ctx.drawImage(img, -height, 0, height, width);
+        } else {
+          ctx.drawImage(img, 0, 0, width, height);
+        }
+
+        // Restore context
+        ctx.restore();
+
+        // Move X position for next image
+        currentX += width;
+      } catch (error) {
+        console.error("Error drawing image in collage:", error);
       }
     }
 
     // Upload collage to S3
     try {
-      const collageImageData = canvas.toDataURL('image/jpeg', 0.9);
+      const collageImageData = canvas.toDataURL("image/jpeg", 0.9);
       await screenApi.uploadCollage(collageImageData, Date.now());
-      console.log('🖼️ Collage uploaded successfully');
+      console.log("🖼️ Collage uploaded successfully");
     } catch (error) {
-      console.error('Error uploading collage:', error);
+      console.error("Error uploading collage:", error);
     }
   };
 
@@ -175,14 +207,16 @@ function ScreensPage() {
       });
 
       console.log("✅ Screen registered with backend");
-      
+
       // Fetch screen details to check if collage screen
       const screensDetail = await screenApi.getAll();
-      const thisScreen = screensDetail.find((s: any) => s.screenId === screenInfo.screenId);
+      const thisScreen = screensDetail.find(
+        (s: any) => s.screenId === screenInfo.screenId,
+      );
       if (thisScreen) {
         setIsCollageScreen(thisScreen?.isCollageScreen || false);
       }
-      
+
       setIsRegistered(true);
 
       // Connect to socket
@@ -209,7 +243,7 @@ function ScreensPage() {
       socket.on("screen:capture-ready", (captureData: ScreenCaptureData) => {
         if (thisScreen?.isCollageScreen) {
           console.log("🖼️ Received screen capture for collage:", captureData);
-          setScreenCaptures(prev => {
+          setScreenCaptures((prev) => {
             const newMap = new Map(prev);
             newMap.set(captureData.screenId, captureData);
             return newMap;
@@ -218,17 +252,25 @@ function ScreensPage() {
       });
 
       // Listen for collage updates
-      socket.on("collage:updated", ({ screenId: updatedScreenId, isCollageScreen: newCollageState }: any) => {
-        if (updatedScreenId === screenInfo.screenId) {
-          console.log(`🖼️ This screen is ${newCollageState ? 'now' : 'no longer'} the collage screen`);
-          setIsCollageScreen(newCollageState);
-          if (newCollageState) {
-            setCurrentImage(null); // Clear current image when becoming collage
-          } else {
-            setScreenCaptures(new Map()); // Clear collage data when becoming regular screen
+      socket.on(
+        "collage:updated",
+        ({
+          screenId: updatedScreenId,
+          isCollageScreen: newCollageState,
+        }: any) => {
+          if (updatedScreenId === screenInfo.screenId) {
+            console.log(
+              `🖼️ This screen is ${newCollageState ? "now" : "no longer"} the collage screen`,
+            );
+            setIsCollageScreen(newCollageState);
+            if (newCollageState) {
+              setCurrentImage(null); // Clear current image when becoming collage
+            } else {
+              setScreenCaptures(new Map()); // Clear collage data when becoming regular screen
+            }
           }
-        }
-      });
+        },
+      );
 
       // Listen for mapping updates
       socket.on("mappings:updated", () => {
