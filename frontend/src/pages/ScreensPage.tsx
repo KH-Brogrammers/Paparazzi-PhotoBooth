@@ -220,11 +220,7 @@ function ScreensPage() {
     return (
       <div className="flex flex-col items-center relative justify-center h-full w-full p-6">
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50">
-          <img
-            src="/logo.png"
-            alt=""
-            className="lg:w-54 w-32 border-4 border-red-500"
-          />
+          <img src="/logo.png" alt="" className="lg:w-54 w-32" />
         </div>
         <div className="bg-yellow-500/10 border-2 border-yellow-500 rounded-xl p-8 max-w-2xl">
           <div className="flex items-center justify-center w-16 h-16 bg-yellow-500 rounded-full mx-auto mb-4">
@@ -295,11 +291,11 @@ function ScreensPage() {
 
       {/* Display captured image or logo */}
       {currentImage ? (
-        <div className="w-full relative h-full flex justify-center items-start bg-white border-4 border-black">
+        <div className="w-full relative h-full flex justify-center items-start bg-white">
           <img
             src={currentImage.imageUrl}
             alt={`${currentImage.isCollage ? "Collage" : `Captured from ${currentImage.cameraLabel}`}`}
-            className={`w-fit h-fit border-4 border-red-500 ${currentImage.isCollage ? "object-contain" : "object-cover"}`}
+            className={`w-fit h-fit ${currentImage.isCollage ? "object-contain" : "object-cover"}`}
             onLoad={() => {
               console.log("Image loaded successfully:", currentImage.imageUrl);
             }}

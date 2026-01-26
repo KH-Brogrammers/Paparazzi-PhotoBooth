@@ -2,7 +2,7 @@ function LoadingSpinner() {
   return (
     <div className="flex flex-col w-full items-center justify-center h-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
       <div className="relative">
-        <div className="w-20 h-20 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-20 h-20 border-t-transparent rounded-full animate-spin" />
         <div className="absolute inset-0 flex items-center justify-center">
           <svg
             className="w-10 h-10 text-blue-500"
