@@ -220,7 +220,7 @@ function ScreensPage() {
     return (
       <div className="flex flex-col items-center relative justify-center h-full w-full p-6">
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50">
-          <img src="/logo.png" alt="" className="lg:w-54 w-32" />
+          <img src="/logo1.png" alt="" className="lg:w-54 w-32" />
         </div>
         <div className="bg-yellow-500/10 border-2 border-yellow-500 rounded-xl p-8 max-w-2xl">
           <div className="flex items-center justify-center w-16 h-16 bg-yellow-500 rounded-full mx-auto mb-4">
@@ -299,6 +299,13 @@ function ScreensPage() {
             onLoad={() => {
               console.log("Image loaded successfully:", currentImage.imageUrl);
             }}
+          />
+          
+          {/* Logo overlay on top-center */}
+          <img
+            src="/logo1.png"
+            alt="Logo"
+            className="absolute top-4 left-1/2 transform -translate-x-1/2 w-48 lg:w-68 z-10"
           />
 
           {/* Image Info - Only show when toggled */}
