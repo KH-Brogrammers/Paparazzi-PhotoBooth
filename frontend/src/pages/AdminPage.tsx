@@ -195,7 +195,15 @@ function AdminPage() {
     if (newLabel) {
       try {
         await screenApi.updateLabel(screenId, newLabel);
-        await loadData();
+        
+        // Update local state instead of refetching
+        setScreens((prevScreens) =>
+          prevScreens.map((screen) =>
+            screen.screenId === screenId
+              ? { ...screen, label: newLabel }
+              : screen
+          )
+        );
       } catch (error) {
         console.error("Error updating screen label:", error);
         alert("Failed to update screen label");
@@ -238,8 +246,10 @@ function AdminPage() {
   };
 
   const handleDeleteOfflineScreens = async () => {
-    const offlineScreens = screens.filter(screen => !(screen as any).isConnected);
-    
+    const offlineScreens = screens.filter(
+      (screen) => !(screen as any).isConnected,
+    );
+
     if (offlineScreens.length === 0) {
       alert("No offline screens to delete.");
       return;
@@ -266,12 +276,12 @@ function AdminPage() {
   const handleRenameCamera = (cameraId: string, currentLabel: string) => {
     const newLabel = prompt("Enter new camera name:", currentLabel);
     if (newLabel && newLabel !== currentLabel) {
-      setAllCameras(prev => 
-        prev.map(camera => 
-          camera.deviceId === cameraId 
+      setAllCameras((prev) =>
+        prev.map((camera) =>
+          camera.deviceId === cameraId
             ? { ...camera, label: newLabel }
-            : camera
-        )
+            : camera,
+        ),
       );
     }
   };
@@ -280,7 +290,9 @@ function AdminPage() {
     if (confirm(`Remove "${cameraLabel}" from mappings?`)) {
       try {
         await mappingApi.delete(cameraId);
-        setAllCameras(prev => prev.filter(camera => camera.deviceId !== cameraId));
+        setAllCameras((prev) =>
+          prev.filter((camera) => camera.deviceId !== cameraId),
+        );
         await loadData();
         alert("Camera removed successfully!");
       } catch (error) {
@@ -291,17 +303,17 @@ function AdminPage() {
   };
 
   const handleSelectAllScreens = (cameraId: string) => {
-    const allScreenIds = screens.map(screen => screen.screenId);
-    setSelectedMappings(prev => ({
+    const allScreenIds = screens.map((screen) => screen.screenId);
+    setSelectedMappings((prev) => ({
       ...prev,
-      [cameraId]: allScreenIds
+      [cameraId]: allScreenIds,
     }));
   };
 
   const handleDeselectAllScreens = (cameraId: string) => {
-    setSelectedMappings(prev => ({
+    setSelectedMappings((prev) => ({
       ...prev,
-      [cameraId]: []
+      [cameraId]: [],
     }));
   };
 
@@ -309,25 +321,49 @@ function AdminPage() {
     window.location.reload();
   };
 
-  const handleToggleCollageScreen = async (screenId: string, currentState: boolean) => {
+  const handleToggleCollageScreen = async (
+    screenId: string,
+    currentState: boolean,
+  ) => {
     try {
       const newState = !currentState;
       await screenApi.toggleCollageScreen(screenId, newState);
-      await loadData();
-      alert(newState ? 'Screen set as collage screen' : 'Collage screen removed');
+      
+      // Update local state instead of refetching
+      setScreens((prevScreens) =>
+        prevScreens.map((screen) =>
+          screen.screenId === screenId
+            ? { ...screen, isCollageScreen: newState }
+            : screen.isCollageScreen && newState
+            ? { ...screen, isCollageScreen: false } // Turn off other collage screens
+            : screen
+        )
+      );
+      
+      alert(
+        newState ? "Screen set as collage screen" : "Collage screen removed",
+      );
     } catch (error) {
-      console.error('Error toggling collage screen:', error);
-      alert('Failed to toggle collage screen');
+      console.error("Error toggling collage screen:", error);
+      alert("Failed to toggle collage screen");
     }
   };
 
   const handleUpdateRotation = async (screenId: string, rotation: number) => {
     try {
       await screenApi.updateRotation(screenId, rotation);
-      await loadData();
+      
+      // Update local state instead of refetching
+      setScreens((prevScreens) =>
+        prevScreens.map((screen) =>
+          screen.screenId === screenId
+            ? { ...screen, rotation }
+            : screen
+        )
+      );
     } catch (error) {
-      console.error('Error updating rotation:', error);
-      alert('Failed to update rotation');
+      console.error("Error updating rotation:", error);
+      alert("Failed to update rotation");
     }
   };
 
@@ -336,14 +372,22 @@ function AdminPage() {
     x: number,
     y: number,
     width: number,
-    height: number
+    height: number,
   ) => {
     try {
       await screenApi.updateCollagePosition(screenId, { x, y, width, height });
-      await loadData();
+      
+      // Update local state instead of refetching
+      setScreens((prevScreens) =>
+        prevScreens.map((screen) =>
+          screen.screenId === screenId
+            ? { ...screen, collagePosition: { x, y, width, height } }
+            : screen
+        )
+      );
     } catch (error) {
-      console.error('Error updating collage position:', error);
-      alert('Failed to update collage position');
+      console.error("Error updating collage position:", error);
+      alert("Failed to update collage position");
     }
   };
 
@@ -415,12 +459,18 @@ function AdminPage() {
               >
                 🔄 Hard Refresh
               </button>
-              {screens.filter(screen => !(screen as any).isConnected).length > 0 && (
+              {screens.filter((screen) => !(screen as any).isConnected).length >
+                0 && (
                 <button
                   onClick={handleDeleteOfflineScreens}
                   className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition-colors"
                 >
-                  🗑️ Delete Offline ({screens.filter(screen => !(screen as any).isConnected).length})
+                  🗑️ Delete Offline (
+                  {
+                    screens.filter((screen) => !(screen as any).isConnected)
+                      .length
+                  }
+                  )
                 </button>
               )}
               {screens.length > 0 && (
@@ -487,7 +537,7 @@ function AdminPage() {
                     onClick={() =>
                       handleToggleCollageScreen(
                         screen.screenId,
-                        screen.isCollageScreen
+                        screen.isCollageScreen,
                       )
                     }
                     className={`px-3 py-1 rounded text-xs font-bold transition-colors ${
@@ -508,7 +558,7 @@ function AdminPage() {
                     onChange={(e) =>
                       handleUpdateRotation(
                         screen.screenId,
-                        parseInt(e.target.value)
+                        parseInt(e.target.value),
                       )
                     }
                     className="bg-gray-600 text-white text-sm px-2 py-1 rounded"
@@ -534,7 +584,7 @@ function AdminPage() {
                             parseInt(e.target.value) || 0,
                             screen.collagePosition?.y || 0,
                             screen.collagePosition?.width || 0,
-                            screen.collagePosition?.height || 0
+                            screen.collagePosition?.height || 0,
                           )
                         }
                         className="bg-gray-600 text-white text-xs px-2 py-1 rounded"
@@ -549,7 +599,7 @@ function AdminPage() {
                             screen.collagePosition?.x || 0,
                             parseInt(e.target.value) || 0,
                             screen.collagePosition?.width || 0,
-                            screen.collagePosition?.height || 0
+                            screen.collagePosition?.height || 0,
                           )
                         }
                         className="bg-gray-600 text-white text-xs px-2 py-1 rounded"
@@ -672,13 +722,17 @@ function AdminPage() {
                             : "📷 SECONDARY"}
                         </span>
                         <button
-                          onClick={() => handleRenameCamera(camera.deviceId, camera.label)}
+                          onClick={() =>
+                            handleRenameCamera(camera.deviceId, camera.label)
+                          }
                           className="text-blue-400 hover:text-blue-300 text-sm px-2 py-1 rounded"
                         >
                           ✏️ Rename
                         </button>
                         <button
-                          onClick={() => handleRemoveCamera(camera.deviceId, camera.label)}
+                          onClick={() =>
+                            handleRemoveCamera(camera.deviceId, camera.label)
+                          }
                           className="text-red-400 hover:text-red-300 text-sm px-2 py-1 rounded"
                         >
                           🗑️ Remove
@@ -698,7 +752,9 @@ function AdminPage() {
                         ✓ Select All
                       </button>
                       <button
-                        onClick={() => handleDeselectAllScreens(camera.deviceId)}
+                        onClick={() =>
+                          handleDeselectAllScreens(camera.deviceId)
+                        }
                         className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded transition-colors"
                       >
                         ✗ Deselect All
@@ -709,28 +765,28 @@ function AdminPage() {
                       {screens
                         .filter((screen) => !screen.isCollageScreen) // Exclude collage screens from mapping
                         .map((screen) => (
-                        <label
-                          key={screen.screenId}
-                          className="flex items-center space-x-3 bg-gray-700/50 p-4 rounded-lg cursor-pointer hover:bg-gray-700 transition-colors"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={
-                              selectedMappings[camera.deviceId]?.includes(
-                                screen.screenId,
-                              ) || false
-                            }
-                            onChange={() =>
-                              handleCheckboxChange(
-                                camera.deviceId,
-                                screen.screenId,
-                              )
-                            }
-                            className="w-5 h-5 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
-                          />
-                          <span className="text-white">{screen.label}</span>
-                        </label>
-                      ))}
+                          <label
+                            key={screen.screenId}
+                            className="flex items-center space-x-3 bg-gray-700/50 p-4 rounded-lg cursor-pointer hover:bg-gray-700 transition-colors"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={
+                                selectedMappings[camera.deviceId]?.includes(
+                                  screen.screenId,
+                                ) || false
+                              }
+                              onChange={() =>
+                                handleCheckboxChange(
+                                  camera.deviceId,
+                                  screen.screenId,
+                                )
+                              }
+                              className="w-5 h-5 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                            />
+                            <span className="text-white">{screen.label}</span>
+                          </label>
+                        ))}
                     </div>
 
                     <p className="text-sm text-gray-500 mt-3">
