@@ -111,10 +111,15 @@ function CameraPage() {
       });
 
       // Listen for camera details toggle from admin
-      socketConnection.on("admin:toggle-camera-details", ({ show }: { show: boolean }) => {
-        console.log(`👁️ Camera details ${show ? "shown" : "hidden"} from admin`);
-        setShowCameraDetails(show);
-      });
+      socketConnection.on(
+        "admin:toggle-camera-details",
+        ({ show }: { show: boolean }) => {
+          console.log(
+            `👁️ Camera details ${show ? "shown" : "hidden"} from admin`,
+          );
+          setShowCameraDetails(show);
+        },
+      );
 
       // Emit cameras detected event for global button
       window.dispatchEvent(

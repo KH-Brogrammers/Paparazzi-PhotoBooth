@@ -102,7 +102,9 @@ function ScreensPage() {
       if (thisScreen) {
         const isCollage = thisScreen?.isCollageScreen || false;
         setIsCollageScreen(isCollage);
-        console.log(`🖼️ Screen ${screenInfo.screenId} is collage screen: ${isCollage}`);
+        console.log(
+          `🖼️ Screen ${screenInfo.screenId} is collage screen: ${isCollage}`,
+        );
       }
 
       setIsRegistered(true);
@@ -180,19 +182,23 @@ function ScreensPage() {
     if (socketRef.current && isRegistered) {
       // Remove old listener
       socketRef.current.off("image:captured");
-      
+
       // Add new listener with current state
       const handleImageCaptured = (imageData: ImageData) => {
         console.log("📸 Received image:", imageData);
         console.log("🖼️ Current screen isCollageScreen:", isCollageScreen);
         console.log("🖼️ Image isCollage:", imageData.isCollage);
-        
+
         if (imageData.isCollage) {
           if (isCollageScreen) {
             setCurrentImage(imageData);
-            console.log(`🖼️ Displaying collage (${imageData.orientation}) on collage screen`);
+            console.log(
+              `🖼️ Displaying collage (${imageData.orientation}) on collage screen`,
+            );
           } else {
-            console.log(`🖼️ Ignoring collage image - this is not a collage screen`);
+            console.log(
+              `🖼️ Ignoring collage image - this is not a collage screen`,
+            );
           }
         } else {
           if (!isCollageScreen) {
@@ -214,7 +220,11 @@ function ScreensPage() {
     return (
       <div className="flex flex-col items-center relative justify-center h-full w-full p-6">
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50">
-          <img src="/logo.png" alt="" className="lg:w-54 w-32" />
+          <img
+            src="/logo.png"
+            alt=""
+            className="lg:w-54 w-32 border-4 border-red-500"
+          />
         </div>
         <div className="bg-yellow-500/10 border-2 border-yellow-500 rounded-xl p-8 max-w-2xl">
           <div className="flex items-center justify-center w-16 h-16 bg-yellow-500 rounded-full mx-auto mb-4">
@@ -274,7 +284,8 @@ function ScreensPage() {
             <strong>Label:</strong> {screenLabel}
           </p>
           <p>
-            <strong>Type:</strong> {isCollageScreen ? "Collage Screen" : "Regular Screen"}
+            <strong>Type:</strong>{" "}
+            {isCollageScreen ? "Collage Screen" : "Regular Screen"}
           </p>
           <p className={`${currentImage ? "text-green-400" : "text-gray-400"}`}>
             {currentImage ? "● Active" : "○ Waiting"}
@@ -284,15 +295,11 @@ function ScreensPage() {
 
       {/* Display captured image or logo */}
       {currentImage ? (
-        <div className="w-full relative h-full flex justify-center bg-white">
+        <div className="w-full relative h-full flex justify-center items-start bg-white border-4 border-black">
           <img
             src={currentImage.imageUrl}
-            alt={`${currentImage.isCollage ? 'Collage' : `Captured from ${currentImage.cameraLabel}`}`}
-            className={`w-full h-full ${currentImage.isCollage ? 'object-contain' : 'object-cover'}`}
-            onError={(e) => {
-              console.error("Image failed to load:", currentImage.imageUrl);
-              console.error("Error details:", e);
-            }}
+            alt={`${currentImage.isCollage ? "Collage" : `Captured from ${currentImage.cameraLabel}`}`}
+            className={`w-fit h-fit border-4 border-red-500 ${currentImage.isCollage ? "object-contain" : "object-cover"}`}
             onLoad={() => {
               console.log("Image loaded successfully:", currentImage.imageUrl);
             }}
@@ -302,7 +309,8 @@ function ScreensPage() {
           {showDetails && (
             <div className="absolute bottom-4 left-4 bg-black/70 text-white px-4 py-2 rounded-lg text-sm">
               <p>
-                <strong>Type:</strong> {currentImage.isCollage ? 'Collage' : 'Camera Image'}
+                <strong>Type:</strong>{" "}
+                {currentImage.isCollage ? "Collage" : "Camera Image"}
               </p>
               {!currentImage.isCollage && (
                 <p>
@@ -322,13 +330,11 @@ function ScreensPage() {
           )}
         </div>
       ) : isCollageScreen ? (
-        <div className="w-full relative h-full flex justify-center items-center bg-white">
+        <div className="w-full relative h-full flex justify-center items-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50">
             <img src="/logo.png" alt="" className="lg:w-54 w-32" />
           </div>
-          <div className="text-gray-600 text-2xl">
-            Waiting for collage...
-          </div>
+          <div className="text-gray-600 text-2xl">Waiting for collage...</div>
         </div>
       ) : (
         <LogoPlaceholder />
