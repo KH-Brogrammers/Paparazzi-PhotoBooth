@@ -1,6 +1,6 @@
 import { io, Socket } from 'socket.io-client';
 
-const SOCKET_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8800';
+const SOCKET_URL = import.meta.env.VITE_API_BACKEND_URL || 'http://localhost:8800';
 
 console.log('🔗 Socket URL:', SOCKET_URL);
 
