@@ -285,9 +285,6 @@ function ScreensPage() {
       {/* Display captured image or logo */}
       {currentImage ? (
         <div className="w-full relative h-full flex justify-center bg-white">
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50">
-            <img src="/logo.png" alt="" className="lg:w-54 w-32" />
-          </div>
           <img
             src={currentImage.imageUrl}
             alt={`${currentImage.isCollage ? 'Collage' : `Captured from ${currentImage.cameraLabel}`}`}

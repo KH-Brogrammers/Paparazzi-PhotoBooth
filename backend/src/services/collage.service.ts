@@ -131,10 +131,11 @@ class CollageService {
     const { rows, cols, imageWidth, imageHeight } = this.calculateGridForOrientation(imageCount, orientation);
     
     const padding = 10;
+    const logoHeight = 80; // Reserve space for logo at bottom
     
     // Calculate canvas dimensions
     const canvasWidth = cols * imageWidth + (cols + 1) * padding;
-    const canvasHeight = rows * imageHeight + (rows + 1) * padding;
+    const canvasHeight = rows * imageHeight + (rows + 1) * padding + logoHeight;
     
     console.log(`🎨 Creating ${orientation} ${rows}x${cols} collage (${canvasWidth}x${canvasHeight}px) from ${imageCount} images`);
 
@@ -177,6 +178,36 @@ class CollageService {
         console.error(`Error processing image ${imagePaths[i]}:`, error);
         // Skip this image and continue
       }
+    }
+
+    // Add logo at the bottom center
+    try {
+      const logoPath = path.join(process.cwd(), '../frontend/public/logo.png');
+      if (fs.existsSync(logoPath)) {
+        const logoBuffer = await sharp(logoPath)
+          .resize(Math.min(200, canvasWidth - 40), logoHeight - 20, {
+            fit: 'inside',
+            withoutEnlargement: true
+          })
+          .toBuffer();
+
+        // Get logo dimensions after resize
+        const logoMetadata = await sharp(logoBuffer).metadata();
+        const logoX = Math.floor((canvasWidth - (logoMetadata.width || 0)) / 2);
+        const logoY = canvasHeight - logoHeight + 10;
+
+        compositeOperations.push({
+          input: logoBuffer,
+          top: logoY,
+          left: logoX
+        });
+        
+        console.log(`🏷️ Logo added to collage at position (${logoX}, ${logoY})`);
+      } else {
+        console.warn(`⚠️ Logo not found at ${logoPath}`);
+      }
+    } catch (logoError) {
+      console.error('Error adding logo to collage:', logoError);
     }
 
     // Composite all images onto the canvas

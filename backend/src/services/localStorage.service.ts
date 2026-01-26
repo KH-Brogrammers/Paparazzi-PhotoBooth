@@ -101,10 +101,10 @@ class LocalStorageService {
       const base64Image = base64Data.replace(/^data:image\/\w+;base64,/, '');
       let buffer = Buffer.from(base64Image, 'base64');
 
+      const sharp = require('sharp');
+      
       // Resize image to match screen resolution if provided
       if (screenResolution?.width && screenResolution?.height) {
-        const sharp = require('sharp');
-        
         buffer = await sharp(buffer)
           .resize(screenResolution.width, screenResolution.height, {
             fit: 'contain',
@@ -113,6 +113,45 @@ class LocalStorageService {
           })
           .jpeg({ quality: 90 })
           .toBuffer();
+      }
+
+      // Add logo to the image
+      try {
+        const logoPath = path.join(process.cwd(), '../frontend/public/logo.png');
+        if (fs.existsSync(logoPath)) {
+          const imageMetadata = await sharp(buffer).metadata();
+          const imageWidth = imageMetadata.width || screenResolution?.width || 1920;
+          const imageHeight = imageMetadata.height || screenResolution?.height || 1080;
+          
+          // Calculate logo size and position (bottom center)
+          const logoMaxWidth = Math.min(200, imageWidth * 0.15);
+          const logoMaxHeight = Math.min(80, imageHeight * 0.08);
+          
+          const logoBuffer = await sharp(logoPath)
+            .resize(logoMaxWidth, logoMaxHeight, {
+              fit: 'inside',
+              withoutEnlargement: true
+            })
+            .toBuffer();
+
+          const logoMetadata = await sharp(logoBuffer).metadata();
+          const logoX = Math.floor((imageWidth - (logoMetadata.width || 0)) / 2);
+          const logoY = imageHeight - (logoMetadata.height || 0) - 20; // 20px from bottom
+
+          buffer = await sharp(buffer)
+            .composite([{
+              input: logoBuffer,
+              top: logoY,
+              left: logoX
+            }])
+            .jpeg({ quality: 90 })
+            .toBuffer();
+            
+          console.log(`🏷️ Logo added to image at position (${logoX}, ${logoY})`);
+        }
+      } catch (logoError) {
+        console.error('Error adding logo to image:', logoError);
+        // Continue without logo if there's an error
       }
 
       fs.writeFileSync(filePath, buffer);
