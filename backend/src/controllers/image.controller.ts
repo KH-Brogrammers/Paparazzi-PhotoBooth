@@ -46,13 +46,18 @@ export class ImageController {
   // Save captured image with both S3 and local storage
   async saveImage(req: Request, res: Response): Promise<void> {
     try {
-      const { imageId, cameraId, cameraLabel, imageData, timestamp } = req.body;
+      const {
+        imageId,
+        cameraId,
+        cameraLabel,
+        imageData,
+        timestamp, // This will be ignored - we use group session timestamp
+      } = req.body;
 
-      if (!imageId || !cameraId || !cameraLabel || !imageData || !timestamp) {
+      if (!imageId || !cameraId || !cameraLabel || !imageData) {
         res.status(400).json({
           error: "INVALID_REQUEST",
-          message:
-            "imageId, cameraId, cameraLabel, imageData, and timestamp are required",
+          message: "imageId, cameraId, cameraLabel, and imageData are required",
         });
         return;
       }
@@ -69,11 +74,13 @@ export class ImageController {
 
       const groupId = mapping.groupId || "Group 1";
 
-      // Get group session (shared timestamp/folder for all cameras in group)
+      // ALWAYS use group session (no fallback to original timestamp)
       const session = this.getGroupSession(groupId);
       const timestampNum = session.timestamp;
       const timeFolder = session.folder;
       const folderName = `${timeFolder}/${cameraId}`;
+
+      console.log(`📁 Using group session for ${cameraId}: ${timeFolder}`);
 
       // Filter to only connected screens and exclude collage screens
       const socketService = getSocketService();
