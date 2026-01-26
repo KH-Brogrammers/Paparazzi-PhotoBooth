@@ -1,0 +1,23 @@
+backend
+
+npx tsc
+pm2 delete all
+pm2 start dist/index.js -i max --name backend
+
+
+pm2 stop all
+pm2 stop all
+
+pm2 list
+pm2 logs backend
+
+
+frontend 
+
+sudo lsof -i :5173
+sudo kill -9 <PID>
+
+
+pm2 start npm --name frontend -- run dev
+pm2 save
+pm2 logs frontend
