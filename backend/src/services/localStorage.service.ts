@@ -69,6 +69,10 @@ class LocalStorageService {
     return fs.existsSync(fullPath);
   }
 
+  getBasePath(): string {
+    return this.basePath;
+  }
+
   generateFolderName(timestamp: number): string {
     // Create folder structure: HH:MM:SS_DD-MM-YYYY
     const date = new Date(timestamp);

@@ -7,8 +7,33 @@ import { localStorageService } from "../services/localStorage.service";
 import { s3Service } from "../services/s3.service";
 import { collageService } from "../services/collage.service";
 import QRCode from 'qrcode';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export class ImageController {
+  private static groupSessions: Map<string, { timestamp: number; folder: string }> = new Map();
+  private static readonly SESSION_TIMEOUT = 10000; // 10 seconds
+
+  // Get or create group session
+  private getGroupSession(groupId: string): { timestamp: number; folder: string } {
+    const now = Date.now();
+    const existing = ImageController.groupSessions.get(groupId);
+    
+    // If no session or session is too old, create new one
+    if (!existing || (now - existing.timestamp) > ImageController.SESSION_TIMEOUT) {
+      const date = new Date(now);
+      const timeFolder = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}_${date.getDate().toString().padStart(2, '0')}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getFullYear()}_${groupId}`;
+      
+      const session = { timestamp: now, folder: timeFolder };
+      ImageController.groupSessions.set(groupId, session);
+      console.log(`📁 Created new session for ${groupId}: ${timeFolder}`);
+      return session;
+    }
+    
+    console.log(`📁 Using existing session for ${groupId}: ${existing.folder}`);
+    return existing;
+  }
+
   // Save captured image with both S3 and local storage
   async saveImage(req: Request, res: Response): Promise<void> {
     try {
@@ -28,8 +53,6 @@ export class ImageController {
         return;
       }
 
-      const timestampNum = typeof timestamp === 'string' ? new Date(timestamp).getTime() : timestamp;
-
       // Get mapped screens for this camera
       const mapping = await CameraMapping.findOne({ cameraId });
       if (!mapping || mapping.screenIds.length === 0) {
@@ -39,6 +62,14 @@ export class ImageController {
         });
         return;
       }
+
+      const groupId = mapping.groupId || 'Group 1';
+
+      // Get group session (shared timestamp/folder for all cameras in group)
+      const session = this.getGroupSession(groupId);
+      const timestampNum = session.timestamp;
+      const timeFolder = session.folder;
+      const folderName = `${timeFolder}/${cameraId}`;
 
       // Filter to only connected screens and exclude collage screens
       const socketService = getSocketService();
@@ -59,11 +90,6 @@ export class ImageController {
         });
         return;
       }
-
-      // Create folder structure: HH:MM:SS_DD/MM/YYYY/cameraId
-      const date = new Date(timestampNum);
-      const timeFolder = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}_${date.getDate().toString().padStart(2, '0')}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getFullYear()}`;
-      const folderName = `${timeFolder}/${cameraId}`;
 
       const savedImages: any[] = [];
 
@@ -192,47 +218,11 @@ export class ImageController {
 
       console.log(`✅ Saved ${savedImages.length} images for ${activeScreenIds.length} connected screens`);
 
-      // Generate collage after saving all images
+      // Generate collage after saving all images - use group-based approach
       try {
-        const collageResult = await collageService.generateCollageWithS3Upload(folderName);
-        console.log(`🎨 Collage generated for folder: ${folderName}`);
-        if (collageResult.s3Urls && collageResult.s3Urls.length > 0) {
-          console.log(`☁️ Collages uploaded to S3`);
-        }
-
-        // Emit collage to collage screens
-        const collageScreens = await Screen.find({ isCollageScreen: true });
-        const connectedCollageScreens = collageScreens.filter(screen => 
-          connectedScreenIds.includes(screen.screenId)
-        );
-
-        if (connectedCollageScreens.length > 0) {
-          for (const screen of connectedCollageScreens) {
-            // Determine orientation based on screen resolution
-            const isLandscape = screen.resolution && screen.resolution.width >= screen.resolution.height;
-            const orientation = isLandscape ? 'landscape' : 'portrait';
-            
-            // Create collage URL
-            const backendUrl = process.env.BACKEND_URL || 'http://localhost:8800';
-            const collageUrl = `${backendUrl}/api/images/collage/${encodeURIComponent(timeFolder)}?orientation=${orientation}`;
-            
-            // Emit collage to this screen
-            socketService.emitImageToScreens([screen.screenId], {
-              imageId: `collage_${timestampNum}`,
-              cameraId: 'collage',
-              cameraLabel: 'Collage',
-              imageUrl: collageUrl,
-              storageType: 'local',
-              timestamp: timestampNum,
-              isCollage: true,
-              orientation
-            });
-            
-            console.log(`🖼️ Collage (${orientation}) sent to screen: ${screen.screenId}`);
-          }
-        }
+        await this.generateGroupCollage(groupId, timeFolder, timestampNum);
       } catch (collageError) {
-        console.error('Error generating collage:', collageError);
+        console.error('Error generating group collage:', collageError);
         // Don't fail the request if collage generation fails
       }
 
@@ -250,6 +240,82 @@ export class ImageController {
         message: "Failed to save image",
       });
     }
+  }
+
+  // Generate group-based collage
+  private async generateGroupCollage(groupId: string, timeFolder: string, timestampNum: number): Promise<void> {
+    // Wait a bit for other cameras in the group to finish
+    setTimeout(async () => {
+      try {
+        // Get all cameras in this group
+        const groupCameras = await CameraMapping.find({ groupId });
+        const groupCameraIds = groupCameras.map(cam => cam.cameraId);
+        
+        console.log(`🎯 Checking group ${groupId} with ${groupCameraIds.length} cameras`);
+        
+        // Check if all cameras in the group have saved images in this time folder
+        const basePath = localStorageService.getBasePath();
+        const groupFolderPath = path.join(basePath, timeFolder);
+        
+        if (!fs.existsSync(groupFolderPath)) {
+          console.log(`⏳ Group folder not ready yet: ${timeFolder}`);
+          return;
+        }
+        
+        // Check which cameras have saved images
+        const availableCameras = fs.readdirSync(groupFolderPath)
+          .filter(item => fs.statSync(path.join(groupFolderPath, item)).isDirectory())
+          .filter(cameraId => groupCameraIds.includes(cameraId));
+        
+        console.log(`📸 Found ${availableCameras.length}/${groupCameraIds.length} cameras ready in group ${groupId}`);
+        
+        // Generate collage if we have images from cameras in this group
+        if (availableCameras.length > 0) {
+          const collageResult = await collageService.generateCollageWithS3Upload(timeFolder);
+          console.log(`🎨 Group ${groupId} collage generated for folder: ${timeFolder}`);
+          
+          if (collageResult.s3Urls && collageResult.s3Urls.length > 0) {
+            console.log(`☁️ Group ${groupId} collages uploaded to S3`);
+          }
+
+          // Emit collage to collage screens
+          const socketService = getSocketService();
+          const connectedScreenIds = socketService.getConnectedScreens();
+          const collageScreens = await Screen.find({ isCollageScreen: true });
+          const connectedCollageScreens = collageScreens.filter(screen => 
+            connectedScreenIds.includes(screen.screenId)
+          );
+
+          if (connectedCollageScreens.length > 0) {
+            for (const screen of connectedCollageScreens) {
+              // Determine orientation based on screen resolution
+              const isLandscape = screen.resolution && screen.resolution.width >= screen.resolution.height;
+              const orientation = isLandscape ? 'landscape' : 'portrait';
+              
+              // Create collage URL
+              const backendUrl = process.env.BACKEND_URL || 'http://localhost:8800';
+              const collageUrl = `${backendUrl}/api/images/collage/${encodeURIComponent(timeFolder)}?orientation=${orientation}`;
+              
+              // Emit collage to this screen
+              socketService.emitImageToScreens([screen.screenId], {
+                imageId: `collage_${timestampNum}`,
+                cameraId: 'collage',
+                cameraLabel: `${groupId} Collage`,
+                imageUrl: collageUrl,
+                storageType: 'local',
+                timestamp: timestampNum,
+                isCollage: true,
+                orientation
+              });
+              
+              console.log(`🖼️ Group ${groupId} collage (${orientation}) sent to screen: ${screen.screenId}`);
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`Error generating group ${groupId} collage:`, error);
+      }
+    }, 2000); // Wait 2 seconds for other cameras to finish
   }
 
   // Get all images
