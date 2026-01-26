@@ -45,7 +45,7 @@ export class MappingController {
   // Update camera to screen mapping
   async updateMapping(req: Request, res: Response): Promise<void> {
     try {
-      const { cameraId, cameraLabel, screenIds } = req.body;
+      const { cameraId, cameraLabel, screenIds, groupId } = req.body;
 
       if (!cameraId || !cameraLabel || !Array.isArray(screenIds)) {
         res.status(400).json({
@@ -61,6 +61,7 @@ export class MappingController {
           cameraId,
           cameraLabel,
           screenIds,
+          groupId: groupId || 'Group 1',
           isActive: true,
         },
         { upsert: true, new: true }

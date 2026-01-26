@@ -4,6 +4,7 @@ export interface ICameraMapping extends Document {
   cameraId: string;
   cameraLabel: string;
   screenIds: string[];
+  groupId: string;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -24,6 +25,10 @@ const CameraMappingSchema: Schema = new Schema(
     screenIds: {
       type: [String],
       default: [],
+    },
+    groupId: {
+      type: String,
+      default: 'Group 1',
     },
     isActive: {
       type: Boolean,

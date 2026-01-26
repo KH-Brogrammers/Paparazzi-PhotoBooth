@@ -106,11 +106,11 @@ export const mappingApi = {
     return response.json();
   },
 
-  update: async (cameraId: string, cameraLabel: string, screenIds: string[]) => {
+  update: async (cameraId: string, cameraLabel: string, screenIds: string[], groupId?: string) => {
     const response = await fetch(`${API_BASE_URL}/mappings`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cameraId, cameraLabel, screenIds }),
+      body: JSON.stringify({ cameraId, cameraLabel, screenIds, groupId }),
     });
     return response.json();
   },

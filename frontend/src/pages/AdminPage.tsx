@@ -14,6 +14,8 @@ function AdminPage() {
   const [saving, setSaving] = useState(false);
   const [showScreenDetails, setShowScreenDetails] = useState(false);
   const [showCameraDetails, setShowCameraDetails] = useState(false);
+  const [cameraGroups, setCameraGroups] = useState<Record<string, string>>({});
+  const [availableGroups] = useState(['Group 1', 'Group 2', 'Group 3', 'Group 4', 'Group 5']);
 
   const loadData = async () => {
     try {
@@ -172,10 +174,11 @@ function AdminPage() {
     try {
       setSaving(true);
 
-      // Save all mappings
+      // Save all mappings with group information
       const savePromises = allCameras.map((camera) => {
         const screenIds = selectedMappings[camera.deviceId] || [];
-        return mappingApi.update(camera.deviceId, camera.label, screenIds);
+        const groupId = cameraGroups[camera.deviceId] || 'Group 1';
+        return mappingApi.update(camera.deviceId, camera.label, screenIds, groupId);
       });
 
       await Promise.all(savePromises);
@@ -390,6 +393,28 @@ function AdminPage() {
       alert("Failed to update collage position");
     }
   };
+
+  const handleCameraGroupChange = (cameraId: string, groupName: string) => {
+    setCameraGroups(prev => ({
+      ...prev,
+      [cameraId]: groupName
+    }));
+  };
+
+  // Initialize camera groups when cameras are loaded
+  useEffect(() => {
+    if (allCameras.length > 0) {
+      const newGroups: Record<string, string> = {};
+      allCameras.forEach(camera => {
+        if (!cameraGroups[camera.deviceId]) {
+          newGroups[camera.deviceId] = 'Group 1'; // Default to Group 1
+        }
+      });
+      if (Object.keys(newGroups).length > 0) {
+        setCameraGroups(prev => ({ ...prev, ...newGroups }));
+      }
+    }
+  }, [allCameras]);
 
   const handleToggleScreenDetails = () => {
     const newState = !showScreenDetails;
@@ -706,9 +731,23 @@ function AdminPage() {
                     className="bg-gray-800 border-2 border-gray-700 rounded-lg p-6"
                   >
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-white font-semibold text-xl">
-                        📷 {camera.label}
-                      </h3>
+                      <div className="flex items-center space-x-4">
+                        <h3 className="text-white font-semibold text-xl">
+                          📷 {camera.label}
+                        </h3>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-gray-400 text-sm">Group:</span>
+                          <select
+                            value={cameraGroups[camera.deviceId] || 'Group 1'}
+                            onChange={(e) => handleCameraGroupChange(camera.deviceId, e.target.value)}
+                            className="bg-gray-700 text-white px-3 py-1 rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                          >
+                            {availableGroups.map(group => (
+                              <option key={group} value={group}>{group}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
                       <div className="flex items-center space-x-3">
                         <span
                           className={`px-3 py-1 text-sm font-bold rounded-full ${
