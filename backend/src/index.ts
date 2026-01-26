@@ -14,9 +14,17 @@ const httpServer = http.createServer(app);
 const socketService = initializeSocketService(httpServer);
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  exposedHeaders: ['ngrok-skip-browser-warning']
+}));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Add ngrok header to all responses
+app.use((req, res, next) => {
+  res.setHeader('ngrok-skip-browser-warning', 'true');
+  next();
+});
 
 // Routes
 app.use('/api', routes);

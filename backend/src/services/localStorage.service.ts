@@ -7,13 +7,28 @@ class LocalStorageService {
 
   constructor() {
     this.basePath = config.imageStoragePath;
+    console.log(`🔧 Storage path configured: ${this.basePath}`);
+    console.log(`🔧 Environment IMAGE_STORAGE_PATH: ${process.env.IMAGE_STORAGE_PATH}`);
     this.ensureBaseDirectoryExists();
   }
 
   private ensureBaseDirectoryExists(): void {
-    if (!fs.existsSync(this.basePath)) {
-      fs.mkdirSync(this.basePath, { recursive: true });
-      console.log(`📁 Created base storage directory: ${this.basePath}`);
+    try {
+      if (!fs.existsSync(this.basePath)) {
+        fs.mkdirSync(this.basePath, { recursive: true });
+        console.log(`📁 Created base storage directory: ${this.basePath}`);
+      } else {
+        console.log(`📁 Base storage directory exists: ${this.basePath}`);
+      }
+      
+      // Test write permissions
+      const testFile = path.join(this.basePath, '.write-test');
+      fs.writeFileSync(testFile, 'test');
+      fs.unlinkSync(testFile);
+      console.log(`✅ Write permissions confirmed for: ${this.basePath}`);
+    } catch (error) {
+      console.error(`❌ Storage directory error for ${this.basePath}:`, error);
+      throw new Error(`Cannot access storage directory: ${this.basePath}`);
     }
   }
 
@@ -89,11 +104,18 @@ class LocalStorageService {
     screenResolution?: { width: number; height: number }
   ): Promise<{ localPath: string; relativePath: string }> {
     try {
+      console.log(`💾 Saving image to storage path: ${this.basePath}`);
+      console.log(`💾 Folder name: ${folderName}`);
+      
       // Create folder structure: folderName/screen_X_photo_orientation.jpg
       const folderPath = path.join(this.basePath, folderName);
+      console.log(`💾 Full folder path: ${folderPath}`);
+      
       if (!fs.existsSync(folderPath)) {
         fs.mkdirSync(folderPath, { recursive: true });
         console.log(`📁 Created folder: ${folderPath}`);
+      } else {
+        console.log(`📁 Folder already exists: ${folderPath}`);
       }
 
       // Generate filename: screen_1_photo_landscape.jpg, screen_2_photo_portrait.jpg, etc.
