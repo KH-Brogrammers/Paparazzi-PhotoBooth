@@ -6,11 +6,11 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
-    host: true,       // listen on all interfaces
+    host: true,       
     port: 5173,
     strictPort: true,
     hmr: {
-      host: 'janella-triumphant-roastingly.ngrok-free.dev', // or dynamic
+      host: 'janella-triumphant-roastingly.ngrok-free.dev', 
     },
   },
 });
