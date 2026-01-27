@@ -15,16 +15,12 @@ const socketService = initializeSocketService(httpServer);
 
 // Middleware
 app.use(cors({
-  exposedHeaders: ['ngrok-skip-browser-warning']
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-
-// Add ngrok header to all responses
-app.use((req, res, next) => {
-  res.setHeader('ngrok-skip-browser-warning', 'true');
-  next();
-});
 
 // Routes
 app.use('/api', routes);
@@ -42,7 +38,7 @@ const startServer = async () => {
     await connectDatabase();
     
     httpServer.listen(PORT, () => {
-      console.log(`🚀 Server is running on http://localhost:${PORT}`);
+      console.log(`🚀 Server is running on http://0.0.0.0:${PORT}`);
       console.log(`📸 Photo Shoot Backend API ready!`);
       console.log(`🔌 Socket.io initialized`);
       

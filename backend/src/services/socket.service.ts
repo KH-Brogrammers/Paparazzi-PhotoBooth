@@ -13,7 +13,11 @@ export class SocketService {
       cors: {
         origin: '*',
         methods: ['GET', 'POST'],
+        allowedHeaders: ['Content-Type'],
+        credentials: false
       },
+      allowEIO3: true,
+      transports: ['websocket', 'polling']
     });
 
     this.screenSockets = new Map();
