@@ -195,75 +195,71 @@ class CollageService {
   }
 
   /**
-   * Get creative layout patterns based on image count
+   * Get creative layout patterns based on image count with no overlaps
    */
   private getCreativeLayout(imageCount: number, canvasWidth: number, canvasHeight: number): Array<{x: number, y: number, width: number, height: number, rotation?: number, border?: boolean}> {
-    const layouts: any = {
-      1: [ // Single image - large centered
-        { x: canvasWidth * 0.1, y: canvasHeight * 0.1, width: canvasWidth * 0.8, height: canvasHeight * 0.8, border: true }
-      ],
+    const padding = 20; // Space between photos
+    
+    // Calculate grid dimensions
+    const { rows, cols } = this.calculateOptimalGrid(imageCount);
+    
+    // Calculate cell dimensions
+    const cellWidth = (canvasWidth - (cols + 1) * padding) / cols;
+    const cellHeight = (canvasHeight - (rows + 1) * padding) / rows;
+    
+    const layout = [];
+    
+    for (let i = 0; i < imageCount; i++) {
+      const row = Math.floor(i / cols);
+      const col = i % cols;
       
-      2: [ // Two images - one large, one small rotated
-        { x: 50, y: 50, width: canvasWidth * 0.6, height: canvasHeight * 0.7, border: true },
-        { x: canvasWidth * 0.65, y: canvasHeight * 0.2, width: canvasWidth * 0.25, height: canvasHeight * 0.4, rotation: 15, border: true }
-      ],
+      // Base position in grid
+      const baseX = col * (cellWidth + padding) + padding;
+      const baseY = row * (cellHeight + padding) + padding;
       
-      3: [ // Three images - creative triangle
-        { x: canvasWidth * 0.05, y: canvasHeight * 0.05, width: canvasWidth * 0.5, height: canvasHeight * 0.6, border: true },
-        { x: canvasWidth * 0.6, y: canvasHeight * 0.1, width: canvasWidth * 0.35, height: canvasHeight * 0.35, rotation: -10, border: true },
-        { x: canvasWidth * 0.55, y: canvasHeight * 0.5, width: canvasWidth * 0.4, height: canvasHeight * 0.4, rotation: 8, border: true }
-      ],
+      // Add some creative variation within each cell (but no overlap)
+      const sizeVariation = 0.85 + Math.random() * 0.15; // 85-100% of cell size
+      const width = Math.floor(cellWidth * sizeVariation);
+      const height = Math.floor(cellHeight * sizeVariation);
       
-      4: [ // Four images - magazine style
-        { x: 30, y: 30, width: canvasWidth * 0.45, height: canvasHeight * 0.55, border: true },
-        { x: canvasWidth * 0.52, y: 20, width: canvasWidth * 0.25, height: canvasHeight * 0.3, rotation: 5, border: true },
-        { x: canvasWidth * 0.78, y: canvasHeight * 0.15, width: canvasWidth * 0.18, height: canvasHeight * 0.25, rotation: -12, border: true },
-        { x: canvasWidth * 0.5, y: canvasHeight * 0.55, width: canvasWidth * 0.45, height: canvasHeight * 0.4, rotation: 3, border: true }
-      ],
+      // Center the photo in its cell
+      const x = baseX + (cellWidth - width) / 2;
+      const y = baseY + (cellHeight - height) / 2;
       
-      5: [ // Five images - scattered creative
-        { x: 40, y: 40, width: canvasWidth * 0.35, height: canvasHeight * 0.4, border: true },
-        { x: canvasWidth * 0.4, y: 20, width: canvasWidth * 0.3, height: canvasHeight * 0.35, rotation: 8, border: true },
-        { x: canvasWidth * 0.72, y: canvasHeight * 0.05, width: canvasWidth * 0.25, height: canvasHeight * 0.3, rotation: -15, border: true },
-        { x: 60, y: canvasHeight * 0.5, width: canvasWidth * 0.4, height: canvasHeight * 0.45, rotation: -5, border: true },
-        { x: canvasWidth * 0.55, y: canvasHeight * 0.6, width: canvasWidth * 0.35, height: canvasHeight * 0.35, rotation: 12, border: true }
-      ],
+      // Add slight rotation for creativity (but keep it small)
+      const rotation = (Math.random() - 0.5) * 10; // -5 to +5 degrees
       
-      6: [ // Six images - dynamic mosaic
-        { x: 30, y: 30, width: canvasWidth * 0.4, height: canvasHeight * 0.35, border: true },
-        { x: canvasWidth * 0.45, y: 20, width: canvasWidth * 0.25, height: canvasHeight * 0.25, rotation: 10, border: true },
-        { x: canvasWidth * 0.72, y: 40, width: canvasWidth * 0.25, height: canvasHeight * 0.3, rotation: -8, border: true },
-        { x: 20, y: canvasHeight * 0.4, width: canvasWidth * 0.3, height: canvasHeight * 0.35, rotation: 5, border: true },
-        { x: canvasWidth * 0.35, y: canvasHeight * 0.5, width: canvasWidth * 0.35, height: canvasHeight * 0.4, rotation: -3, border: true },
-        { x: canvasWidth * 0.72, y: canvasHeight * 0.65, width: canvasWidth * 0.25, height: canvasHeight * 0.3, rotation: 15, border: true }
-      ]
-    };
-
-    // For more than 6 images, create dynamic scattered layout
-    if (imageCount > 6) {
-      const layout = [];
-      const minSize = Math.min(canvasWidth, canvasHeight) * 0.15;
-      const maxSize = Math.min(canvasWidth, canvasHeight) * 0.35;
-      
-      for (let i = 0; i < imageCount; i++) {
-        const size = minSize + (maxSize - minSize) * Math.random();
-        const x = Math.random() * (canvasWidth - size);
-        const y = Math.random() * (canvasHeight - size);
-        const rotation = (Math.random() - 0.5) * 30; // -15 to +15 degrees
-        
-        layout.push({
-          x: Math.floor(x),
-          y: Math.floor(y),
-          width: Math.floor(size),
-          height: Math.floor(size * (0.8 + Math.random() * 0.4)), // Vary aspect ratio
-          rotation: Math.floor(rotation),
-          border: Math.random() > 0.3 // 70% chance of border
-        });
-      }
-      return layout;
+      layout.push({
+        x: Math.floor(x),
+        y: Math.floor(y),
+        width,
+        height,
+        rotation: Math.floor(rotation),
+        border: Math.random() > 0.4 // 60% chance of border
+      });
     }
+    
+    return layout;
+  }
 
-    return layouts[imageCount] || layouts[6]; // Fallback to 6-image layout
+  /**
+   * Calculate optimal grid dimensions for image count
+   */
+  private calculateOptimalGrid(imageCount: number): { rows: number, cols: number } {
+    if (imageCount === 1) return { rows: 1, cols: 1 };
+    if (imageCount === 2) return { rows: 1, cols: 2 };
+    if (imageCount === 3) return { rows: 1, cols: 3 };
+    if (imageCount === 4) return { rows: 2, cols: 2 };
+    if (imageCount <= 6) return { rows: 2, cols: 3 };
+    if (imageCount <= 9) return { rows: 3, cols: 3 };
+    if (imageCount <= 12) return { rows: 3, cols: 4 };
+    if (imageCount <= 16) return { rows: 4, cols: 4 };
+    if (imageCount <= 20) return { rows: 4, cols: 5 };
+    
+    // For larger counts, calculate dynamically
+    const cols = Math.ceil(Math.sqrt(imageCount));
+    const rows = Math.ceil(imageCount / cols);
+    return { rows, cols };
   }
 
   /**
