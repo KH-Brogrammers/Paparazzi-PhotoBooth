@@ -209,78 +209,100 @@ class CollageService {
   }
 
   /**
-   * Get creative layout patterns based on image count with no overlaps
+   * Get creative artistic layout patterns - like real photo collages
    */
   private getCreativeLayout(imageCount: number, canvasWidth: number, canvasHeight: number): Array<{x: number, y: number, width: number, height: number, rotation?: number, border?: boolean}> {
-    const padding = 20; // Space between photos
-    
-    // Calculate grid dimensions
-    const { rows, cols } = this.calculateOptimalGrid(imageCount);
-    
-    // Calculate cell dimensions and ensure they fit in canvas
-    let cellWidth = (canvasWidth - (cols + 1) * padding) / cols;
-    let cellHeight = (canvasHeight - (rows + 1) * padding) / rows;
-    
-    // Ensure minimum cell size and adjust if needed
-    const minCellSize = 100; // Minimum 100px per cell
-    if (cellWidth < minCellSize || cellHeight < minCellSize) {
-      // Reduce padding if cells are too small
-      const newPadding = Math.max(10, padding / 2);
-      cellWidth = (canvasWidth - (cols + 1) * newPadding) / cols;
-      cellHeight = (canvasHeight - (rows + 1) * newPadding) / rows;
-    }
-    
-    // Create array of grid positions for only the photos we have
-    const gridPositions = [];
-    for (let i = 0; i < imageCount; i++) {
-      const row = Math.floor(i / cols);
-      const col = i % cols;
-      gridPositions.push({ row, col });
-    }
-    
-    // Shuffle grid positions randomly so photos don't appear in sequence
-    for (let i = gridPositions.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [gridPositions[i], gridPositions[j]] = [gridPositions[j], gridPositions[i]];
-    }
-    
     const layout = [];
-    const actualPadding = cellWidth < minCellSize || cellHeight < minCellSize ? Math.max(10, padding / 2) : padding;
+    const usedAreas: Array<{x: number, y: number, width: number, height: number}> = [];
+    
+    // Define different photo sizes for variety
+    const photoSizes = [
+      { width: canvasWidth * 0.25, height: canvasHeight * 0.3 },   // Small
+      { width: canvasWidth * 0.35, height: canvasHeight * 0.4 },   // Medium
+      { width: canvasWidth * 0.45, height: canvasHeight * 0.5 },   // Large
+      { width: canvasWidth * 0.2, height: canvasHeight * 0.25 },   // Tiny
+      { width: canvasWidth * 0.3, height: canvasHeight * 0.35 },   // Small-Medium
+    ];
     
     for (let i = 0; i < imageCount; i++) {
-      const { row, col } = gridPositions[i];
+      let attempts = 0;
+      let placed = false;
       
-      // Base position in grid
-      const baseX = col * (cellWidth + actualPadding) + actualPadding;
-      const baseY = row * (cellHeight + actualPadding) + actualPadding;
+      while (!placed && attempts < 50) {
+        // Random size selection
+        const sizeIndex = Math.floor(Math.random() * photoSizes.length);
+        const baseSize = photoSizes[sizeIndex];
+        
+        // Add size variation
+        const sizeVariation = 0.8 + Math.random() * 0.4; // 80-120% variation
+        const width = Math.floor(baseSize.width * sizeVariation);
+        const height = Math.floor(baseSize.height * sizeVariation);
+        
+        // Random position with margins
+        const margin = 30;
+        const x = margin + Math.random() * (canvasWidth - width - margin * 2);
+        const y = margin + Math.random() * (canvasHeight - height - margin * 2);
+        
+        // Creative rotations - more variety
+        const rotations = [-25, -20, -15, -10, -8, -5, -3, 0, 0, 0, 3, 5, 8, 10, 15, 20, 25];
+        const rotation = rotations[Math.floor(Math.random() * rotations.length)];
+        
+        // Check for overlap with existing photos (allow slight overlap for realism)
+        const overlapThreshold = 0.3; // Allow 30% overlap
+        let hasOverlap = false;
+        
+        for (const used of usedAreas) {
+          const overlapX = Math.max(0, Math.min(x + width, used.x + used.width) - Math.max(x, used.x));
+          const overlapY = Math.max(0, Math.min(y + height, used.y + used.height) - Math.max(y, used.y));
+          const overlapArea = overlapX * overlapY;
+          const currentArea = width * height;
+          
+          if (overlapArea > currentArea * overlapThreshold) {
+            hasOverlap = true;
+            break;
+          }
+        }
+        
+        if (!hasOverlap) {
+          // Place the photo
+          layout.push({
+            x: Math.floor(x),
+            y: Math.floor(y),
+            width,
+            height,
+            rotation,
+            border: Math.random() > 0.3 // 70% chance of border for depth
+          });
+          
+          // Record used area
+          usedAreas.push({ x, y, width, height });
+          placed = true;
+        }
+        
+        attempts++;
+      }
       
-      // Ensure we don't go outside canvas bounds
-      const maxX = canvasWidth - cellWidth - actualPadding;
-      const maxY = canvasHeight - cellHeight - actualPadding;
-      
-      const safeX = Math.min(baseX, maxX);
-      const safeY = Math.min(baseY, maxY);
-      
-      // Add some creative variation within each cell (but no overlap)
-      const sizeVariation = 0.85 + Math.random() * 0.15; // 85-100% of cell size
-      const width = Math.floor(cellWidth * sizeVariation);
-      const height = Math.floor(cellHeight * sizeVariation);
-      
-      // Center the photo in its cell
-      const x = safeX + (cellWidth - width) / 2;
-      const y = safeY + (cellHeight - height) / 2;
-      
-      // Add slight rotation for creativity (but keep it small)
-      const rotation = (Math.random() - 0.5) * 10; // -5 to +5 degrees
-      
-      layout.push({
-        x: Math.max(0, Math.floor(x)),
-        y: Math.max(0, Math.floor(y)),
-        width: Math.min(width, canvasWidth - Math.floor(x)),
-        height: Math.min(height, canvasHeight - Math.floor(y)),
-        rotation: Math.floor(rotation),
-        border: Math.random() > 0.4 // 60% chance of border
-      });
+      // If couldn't place after many attempts, place in a safe spot
+      if (!placed) {
+        const fallbackSize = photoSizes[1]; // Medium size
+        const safeX = (i % 3) * (canvasWidth / 3) + 20;
+        const safeY = Math.floor(i / 3) * (canvasHeight / 3) + 20;
+        
+        layout.push({
+          x: safeX,
+          y: safeY,
+          width: Math.floor(fallbackSize.width * 0.8),
+          height: Math.floor(fallbackSize.height * 0.8),
+          rotation: (Math.random() - 0.5) * 20,
+          border: true
+        });
+      }
+    }
+    
+    // Shuffle the layout for more randomness
+    for (let i = layout.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [layout[i], layout[j]] = [layout[j], layout[i]];
     }
     
     return layout;
