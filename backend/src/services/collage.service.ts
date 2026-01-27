@@ -215,13 +215,13 @@ class CollageService {
     const layout = [];
     const usedAreas: Array<{x: number, y: number, width: number, height: number}> = [];
     
-    // Define different photo sizes for variety
+    // Define different photo sizes for variety (smaller sizes to prevent overlap)
     const photoSizes = [
-      { width: canvasWidth * 0.25, height: canvasHeight * 0.3 },   // Small
-      { width: canvasWidth * 0.35, height: canvasHeight * 0.4 },   // Medium
-      { width: canvasWidth * 0.45, height: canvasHeight * 0.5 },   // Large
-      { width: canvasWidth * 0.2, height: canvasHeight * 0.25 },   // Tiny
-      { width: canvasWidth * 0.3, height: canvasHeight * 0.35 },   // Small-Medium
+      { width: canvasWidth * 0.2, height: canvasHeight * 0.25 },   // Small
+      { width: canvasWidth * 0.25, height: canvasHeight * 0.3 },   // Medium-Small
+      { width: canvasWidth * 0.3, height: canvasHeight * 0.35 },   // Medium
+      { width: canvasWidth * 0.15, height: canvasHeight * 0.2 },   // Tiny
+      { width: canvasWidth * 0.22, height: canvasHeight * 0.28 },  // Small-Medium
     ];
     
     for (let i = 0; i < imageCount; i++) {
@@ -233,13 +233,13 @@ class CollageService {
         const sizeIndex = Math.floor(Math.random() * photoSizes.length);
         const baseSize = photoSizes[sizeIndex];
         
-        // Add size variation
-        const sizeVariation = 0.8 + Math.random() * 0.4; // 80-120% variation
+        // Add size variation with padding consideration
+        const sizeVariation = 0.7 + Math.random() * 0.2; // 70-90% variation (smaller)
         const width = Math.floor(baseSize.width * sizeVariation);
         const height = Math.floor(baseSize.height * sizeVariation);
         
-        // Random position with margins
-        const margin = 30;
+        // Random position with larger margins to prevent edge overlaps
+        const margin = 40; // Increased margin
         const x = Math.floor(margin + Math.random() * (canvasWidth - width - margin * 2));
         const y = Math.floor(margin + Math.random() * (canvasHeight - height - margin * 2));
         
@@ -247,8 +247,8 @@ class CollageService {
         const rotations = [-25, -20, -15, -10, -8, -5, -3, 0, 0, 0, 3, 5, 8, 10, 15, 20, 25];
         const rotation = rotations[Math.floor(Math.random() * rotations.length)];
         
-        // Check for overlap with existing photos (allow slight overlap for realism)
-        const overlapThreshold = 0.3; // Allow 30% overlap
+        // Check for overlap with existing photos (no overlap allowed)
+        const overlapThreshold = 0.05; // Allow only 5% overlap (almost no overlap)
         let hasOverlap = false;
         
         for (const used of usedAreas) {
