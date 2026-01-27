@@ -240,8 +240,8 @@ class CollageService {
         
         // Random position with margins
         const margin = 30;
-        const x = margin + Math.random() * (canvasWidth - width - margin * 2);
-        const y = margin + Math.random() * (canvasHeight - height - margin * 2);
+        const x = Math.floor(margin + Math.random() * (canvasWidth - width - margin * 2));
+        const y = Math.floor(margin + Math.random() * (canvasHeight - height - margin * 2));
         
         // Creative rotations - more variety
         const rotations = [-25, -20, -15, -10, -8, -5, -3, 0, 0, 0, 3, 5, 8, 10, 15, 20, 25];
@@ -268,14 +268,14 @@ class CollageService {
           layout.push({
             x: Math.floor(x),
             y: Math.floor(y),
-            width,
-            height,
-            rotation,
+            width: Math.floor(width),
+            height: Math.floor(height),
+            rotation: Math.floor(rotation),
             border: Math.random() > 0.3 // 70% chance of border for depth
           });
           
           // Record used area
-          usedAreas.push({ x, y, width, height });
+          usedAreas.push({ x: Math.floor(x), y: Math.floor(y), width: Math.floor(width), height: Math.floor(height) });
           placed = true;
         }
         
@@ -285,15 +285,15 @@ class CollageService {
       // If couldn't place after many attempts, place in a safe spot
       if (!placed) {
         const fallbackSize = photoSizes[1]; // Medium size
-        const safeX = (i % 3) * (canvasWidth / 3) + 20;
-        const safeY = Math.floor(i / 3) * (canvasHeight / 3) + 20;
+        const safeX = Math.floor((i % 3) * (canvasWidth / 3) + 20);
+        const safeY = Math.floor(Math.floor(i / 3) * (canvasHeight / 3) + 20);
         
         layout.push({
           x: safeX,
           y: safeY,
           width: Math.floor(fallbackSize.width * 0.8),
           height: Math.floor(fallbackSize.height * 0.8),
-          rotation: (Math.random() - 0.5) * 20,
+          rotation: Math.floor((Math.random() - 0.5) * 20),
           border: true
         });
       }
