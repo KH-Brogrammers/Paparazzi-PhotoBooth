@@ -21,7 +21,6 @@ class ApiService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
         },
         body: JSON.stringify(request),
       });
@@ -46,7 +45,6 @@ class ApiService {
         body: file,
         headers: {
           'Content-Type': file.type,
-          'ngrok-skip-browser-warning': 'true',
         },
       });
 

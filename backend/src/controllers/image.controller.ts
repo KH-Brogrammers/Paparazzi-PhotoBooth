@@ -164,8 +164,7 @@ export class ImageController {
         // Create session ID from timestamp for download
         const sessionId = `${timestampNum}-${timeFolder.replace(/[/:]/g, "-")}`;
 
-        // Create download URL using the frontend URL
-        // const frontendUrl = 'https://8d2mn5x3-5173.inc1.devtunnels.ms';
+        // Create download URL using the backend URL
         const backendUrl = process.env.BACKEND_URL || "http://localhost:8800";
         const downloadUrl = `${backendUrl}/api/download/${sessionId}`;
 
