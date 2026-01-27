@@ -9,12 +9,15 @@ function ScreensPage() {
   const [screenId, setScreenId] = useState<string>("");
   const [screenLabel, setScreenLabel] = useState<string>("");
   const [currentImage, setCurrentImage] = useState<ImageData | null>(null);
+  const [allImages, setAllImages] = useState<ImageData[]>([]);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [isRegistered, setIsRegistered] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [isCollageScreen, setIsCollageScreen] = useState(false);
   const socketRef = useRef<any>(null);
+  const rotationIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const captureScreenDisplay = async (originalImageData: ImageData) => {
     try {
@@ -130,6 +133,10 @@ function ScreensPage() {
             setIsCollageScreen(newCollageState); // Update the state
             if (!newCollageState) {
               setCurrentImage(null); // Clear current image when no longer collage screen
+            } else {
+              // Clear rotation images when becoming collage screen
+              setAllImages([]);
+              setCurrentImageIndex(0);
             }
           }
         },
@@ -144,6 +151,8 @@ function ScreensPage() {
       socket.on("screens:clear", () => {
         console.log("🧹 Clearing screen display");
         setCurrentImage(null);
+        setAllImages([]);
+        setCurrentImageIndex(0);
       });
 
       // Listen for screen refresh event
@@ -167,12 +176,34 @@ function ScreensPage() {
     }
   };
 
+  // Image rotation effect
   useEffect(() => {
-    initializeScreen();
+    if (allImages.length > 1 && !isCollageScreen) {
+      rotationIntervalRef.current = setInterval(() => {
+        setCurrentImageIndex((prev) => (prev + 1) % allImages.length);
+      }, 6000); // 6 seconds rotation
+
+      return () => {
+        if (rotationIntervalRef.current) {
+          clearInterval(rotationIntervalRef.current);
+        }
+      };
+    }
+  }, [allImages.length, isCollageScreen]);
+
+  // Update current image when index changes
+  useEffect(() => {
+    if (allImages.length > 0) {
+      setCurrentImage(allImages[currentImageIndex]);
+    }
+  }, [currentImageIndex, allImages]);
 
     return () => {
       if (socketRef.current) {
         socketRef.current.disconnect();
+      }
+      if (rotationIntervalRef.current) {
+        clearInterval(rotationIntervalRef.current);
       }
     };
   }, []);
@@ -202,7 +233,13 @@ function ScreensPage() {
           }
         } else {
           if (!isCollageScreen) {
-            setCurrentImage(imageData);
+            // Add to images array for rotation
+            setAllImages(prev => {
+              const newImages = [...prev, imageData];
+              // Keep only last 20 images to prevent memory issues
+              return newImages.slice(-20);
+            });
+            
             setTimeout(() => {
               captureScreenDisplay(imageData);
             }, 100);
