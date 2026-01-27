@@ -122,22 +122,16 @@ class CollageService {
   }
 
   /**
-   * Create a collage from an array of image file paths
+   * Create a collage from an array of image file paths with creative layouts
    */
   private async createCollageFromImages(imagePaths: string[], orientation: 'landscape' | 'portrait'): Promise<Buffer> {
     const imageCount = imagePaths.length;
     
-    // Calculate grid dimensions based on orientation
-    const { rows, cols, imageWidth, imageHeight } = this.calculateGridForOrientation(imageCount, orientation);
+    // Canvas dimensions
+    const canvasWidth = orientation === 'landscape' ? 1920 : 1080;
+    const canvasHeight = orientation === 'landscape' ? 1160 : 2000; // Leave space for logo
     
-    const padding = 10;
-    const logoHeight = 80; // Reserve space for logo at bottom
-    
-    // Calculate canvas dimensions
-    const canvasWidth = cols * imageWidth + (cols + 1) * padding;
-    const canvasHeight = rows * imageHeight + (rows + 1) * padding + logoHeight;
-    
-    console.log(`🎨 Creating ${orientation} ${rows}x${cols} collage (${canvasWidth}x${canvasHeight}px) from ${imageCount} images`);
+    console.log(`🎨 Creating ${orientation} creative collage (${canvasWidth}x${canvasHeight}px) from ${imageCount} images`);
 
     // Create white background
     const canvas = sharp({
@@ -149,39 +143,47 @@ class CollageService {
       }
     });
 
+    // Get creative layout based on image count
+    const layout = this.getCreativeLayout(imageCount, canvasWidth, canvasHeight);
+    
     // Prepare composite operations
     const compositeOperations: any[] = [];
 
-    for (let i = 0; i < imagePaths.length; i++) {
-      const row = Math.floor(i / cols);
-      const col = i % cols;
+    for (let i = 0; i < Math.min(imagePaths.length, layout.length); i++) {
+      const imageLayout = layout[i];
       
-      const x = col * imageWidth + (col + 1) * padding;
-      const y = row * imageHeight + (row + 1) * padding;
-
       try {
-        // Resize and process each image to fit the rectangular slot
-        const processedImage = await sharp(imagePaths[i])
-          .resize(imageWidth, imageHeight, {
+        // Process image with rotation and effects
+        let processedImage = sharp(imagePaths[i])
+          .resize(imageLayout.width, imageLayout.height, {
             fit: 'cover',
             position: 'center'
-          })
-          .jpeg({ quality: 85 })
-          .toBuffer();
+          });
+
+        // Add rotation if specified
+        if (imageLayout.rotation) {
+          processedImage = processedImage.rotate(imageLayout.rotation, { background: { r: 255, g: 255, b: 255, alpha: 0 } });
+        }
+
+        // Add border/shadow effect for some images
+        if (imageLayout.border) {
+          processedImage = processedImage.extend({
+            top: 5, bottom: 5, left: 5, right: 5,
+            background: { r: 0, g: 0, b: 0, alpha: 1 }
+          });
+        }
+
+        const imageBuffer = await processedImage.jpeg({ quality: 85 }).toBuffer();
 
         compositeOperations.push({
-          input: processedImage,
-          top: y,
-          left: x
+          input: imageBuffer,
+          top: imageLayout.y,
+          left: imageLayout.x
         });
       } catch (error) {
         console.error(`Error processing image ${imagePaths[i]}:`, error);
-        // Skip this image and continue
       }
     }
-
-    // Logo overlay disabled for collages - collages will be generated without logo
-    // The logo is still displayed in the UI header but not burned into collage images
 
     // Composite all images onto the canvas
     const collageBuffer = await canvas
@@ -190,6 +192,78 @@ class CollageService {
       .toBuffer();
 
     return collageBuffer;
+  }
+
+  /**
+   * Get creative layout patterns based on image count
+   */
+  private getCreativeLayout(imageCount: number, canvasWidth: number, canvasHeight: number): Array<{x: number, y: number, width: number, height: number, rotation?: number, border?: boolean}> {
+    const layouts: any = {
+      1: [ // Single image - large centered
+        { x: canvasWidth * 0.1, y: canvasHeight * 0.1, width: canvasWidth * 0.8, height: canvasHeight * 0.8, border: true }
+      ],
+      
+      2: [ // Two images - one large, one small rotated
+        { x: 50, y: 50, width: canvasWidth * 0.6, height: canvasHeight * 0.7, border: true },
+        { x: canvasWidth * 0.65, y: canvasHeight * 0.2, width: canvasWidth * 0.25, height: canvasHeight * 0.4, rotation: 15, border: true }
+      ],
+      
+      3: [ // Three images - creative triangle
+        { x: canvasWidth * 0.05, y: canvasHeight * 0.05, width: canvasWidth * 0.5, height: canvasHeight * 0.6, border: true },
+        { x: canvasWidth * 0.6, y: canvasHeight * 0.1, width: canvasWidth * 0.35, height: canvasHeight * 0.35, rotation: -10, border: true },
+        { x: canvasWidth * 0.55, y: canvasHeight * 0.5, width: canvasWidth * 0.4, height: canvasHeight * 0.4, rotation: 8, border: true }
+      ],
+      
+      4: [ // Four images - magazine style
+        { x: 30, y: 30, width: canvasWidth * 0.45, height: canvasHeight * 0.55, border: true },
+        { x: canvasWidth * 0.52, y: 20, width: canvasWidth * 0.25, height: canvasHeight * 0.3, rotation: 5, border: true },
+        { x: canvasWidth * 0.78, y: canvasHeight * 0.15, width: canvasWidth * 0.18, height: canvasHeight * 0.25, rotation: -12, border: true },
+        { x: canvasWidth * 0.5, y: canvasHeight * 0.55, width: canvasWidth * 0.45, height: canvasHeight * 0.4, rotation: 3, border: true }
+      ],
+      
+      5: [ // Five images - scattered creative
+        { x: 40, y: 40, width: canvasWidth * 0.35, height: canvasHeight * 0.4, border: true },
+        { x: canvasWidth * 0.4, y: 20, width: canvasWidth * 0.3, height: canvasHeight * 0.35, rotation: 8, border: true },
+        { x: canvasWidth * 0.72, y: canvasHeight * 0.05, width: canvasWidth * 0.25, height: canvasHeight * 0.3, rotation: -15, border: true },
+        { x: 60, y: canvasHeight * 0.5, width: canvasWidth * 0.4, height: canvasHeight * 0.45, rotation: -5, border: true },
+        { x: canvasWidth * 0.55, y: canvasHeight * 0.6, width: canvasWidth * 0.35, height: canvasHeight * 0.35, rotation: 12, border: true }
+      ],
+      
+      6: [ // Six images - dynamic mosaic
+        { x: 30, y: 30, width: canvasWidth * 0.4, height: canvasHeight * 0.35, border: true },
+        { x: canvasWidth * 0.45, y: 20, width: canvasWidth * 0.25, height: canvasHeight * 0.25, rotation: 10, border: true },
+        { x: canvasWidth * 0.72, y: 40, width: canvasWidth * 0.25, height: canvasHeight * 0.3, rotation: -8, border: true },
+        { x: 20, y: canvasHeight * 0.4, width: canvasWidth * 0.3, height: canvasHeight * 0.35, rotation: 5, border: true },
+        { x: canvasWidth * 0.35, y: canvasHeight * 0.5, width: canvasWidth * 0.35, height: canvasHeight * 0.4, rotation: -3, border: true },
+        { x: canvasWidth * 0.72, y: canvasHeight * 0.65, width: canvasWidth * 0.25, height: canvasHeight * 0.3, rotation: 15, border: true }
+      ]
+    };
+
+    // For more than 6 images, create dynamic scattered layout
+    if (imageCount > 6) {
+      const layout = [];
+      const minSize = Math.min(canvasWidth, canvasHeight) * 0.15;
+      const maxSize = Math.min(canvasWidth, canvasHeight) * 0.35;
+      
+      for (let i = 0; i < imageCount; i++) {
+        const size = minSize + (maxSize - minSize) * Math.random();
+        const x = Math.random() * (canvasWidth - size);
+        const y = Math.random() * (canvasHeight - size);
+        const rotation = (Math.random() - 0.5) * 30; // -15 to +15 degrees
+        
+        layout.push({
+          x: Math.floor(x),
+          y: Math.floor(y),
+          width: Math.floor(size),
+          height: Math.floor(size * (0.8 + Math.random() * 0.4)), // Vary aspect ratio
+          rotation: Math.floor(rotation),
+          border: Math.random() > 0.3 // 70% chance of border
+        });
+      }
+      return layout;
+    }
+
+    return layouts[imageCount] || layouts[6]; // Fallback to 6-image layout
   }
 
   /**
