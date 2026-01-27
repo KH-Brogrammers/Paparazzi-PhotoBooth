@@ -157,19 +157,22 @@ class CollageService {
         let processedImage = sharp(imagePaths[i])
           .resize(imageLayout.width, imageLayout.height, {
             fit: 'cover',
-            position: 'center'
+            position: 'center',
+            background: { r: 255, g: 255, b: 255, alpha: 1 } // White background
           });
 
-        // Add rotation if specified
+        // Add rotation if specified with white background
         if (imageLayout.rotation) {
-          processedImage = processedImage.rotate(imageLayout.rotation, { background: { r: 255, g: 255, b: 255, alpha: 0 } });
+          processedImage = processedImage.rotate(imageLayout.rotation, { 
+            background: { r: 255, g: 255, b: 255, alpha: 1 } // White background for rotation
+          });
         }
 
         // Add border/shadow effect for some images
         if (imageLayout.border) {
           processedImage = processedImage.extend({
             top: 5, bottom: 5, left: 5, right: 5,
-            background: { r: 0, g: 0, b: 0, alpha: 1 }
+            background: { r: 0, g: 0, b: 0, alpha: 1 } // Black border
           });
         }
 
@@ -207,11 +210,24 @@ class CollageService {
     const cellWidth = (canvasWidth - (cols + 1) * padding) / cols;
     const cellHeight = (canvasHeight - (rows + 1) * padding) / rows;
     
-    const layout = [];
-    
+    // Create array of grid positions
+    const gridPositions = [];
     for (let i = 0; i < imageCount; i++) {
       const row = Math.floor(i / cols);
       const col = i % cols;
+      gridPositions.push({ row, col });
+    }
+    
+    // Shuffle grid positions randomly so photos don't appear in sequence
+    for (let i = gridPositions.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [gridPositions[i], gridPositions[j]] = [gridPositions[j], gridPositions[i]];
+    }
+    
+    const layout = [];
+    
+    for (let i = 0; i < imageCount; i++) {
+      const { row, col } = gridPositions[i];
       
       // Base position in grid
       const baseX = col * (cellWidth + padding) + padding;
