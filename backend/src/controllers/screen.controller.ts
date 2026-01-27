@@ -148,110 +148,37 @@ export class ScreenController {
   // Save screen capture (what's displayed on screen)
   async saveScreenCapture(req: Request, res: Response): Promise<void> {
     try {
-      const {
-        screenId,
-        originalImageId,
-        cameraId,
-        screenImageData,
-        timestamp,
-      } = req.body;
+      const { screenId, originalImageId, cameraId, timestamp } = req.body;
 
-      if (!screenId || !originalImageId || !cameraId || !screenImageData || !timestamp) {
+      if (!screenId || !originalImageId || !cameraId || !timestamp) {
         res.status(400).json({
           error: 'INVALID_REQUEST',
-          message: 'screenId, originalImageId, cameraId, screenImageData, and timestamp are required',
+          message: 'screenId, originalImageId, cameraId, and timestamp are required',
         });
         return;
       }
 
-      const timestampNum = typeof timestamp === 'string' ? new Date(timestamp).getTime() : timestamp;
-
-      // Get screen number from mapping
-      const mapping = await CameraMapping.findOne({ cameraId });
-      if (!mapping) {
-        res.status(404).json({
-          error: 'NOT_FOUND',
-          message: 'Camera mapping not found',
-        });
-        return;
-      }
-
-      const groupId = mapping.groupId || 'Group 1';
-      const screenIndex = mapping.screenIds.indexOf(screenId);
-      const screenNumber = screenIndex + 1;
-
-      // Use the same group session logic as image controller
-      const session = SessionService.getGroupSession(groupId);
-      const timeFolder = session.folder;
-      const folderName = `${timeFolder}/${cameraId}`;
-
-      console.log(`📁 Using group session for screen capture ${cameraId}: ${timeFolder}`);
-
-      // Save screen capture to storage
-      const { relativePath } = await localStorageService.saveImageWithFolder(
-        screenImageData,
-        folderName,
-        screenNumber,
-        timestampNum
-      );
-
-      const localUrl = `${process.env.BACKEND_URL || 'http://localhost:8800'}/api/images/local/${relativePath}`;
-
-      let s3Url: string | undefined;
-      let s3Key: string | undefined;
-      let finalStorageType: 's3' | 'local' = 'local';
-
-      // Try to upload to S3
-      if (s3Service.isConfigured()) {
-        try {
-          const s3Result = await localStorageService.uploadToS3WithFolder(
-            screenImageData,
-            folderName,
-            screenNumber,
-            timestampNum
-          );
-
-          if (s3Result) {
-            s3Url = s3Result.s3Url;
-            s3Key = s3Result.s3Key;
-            finalStorageType = 's3';
-          }
-        } catch (s3Error) {
-          console.error('S3 upload error:', s3Error);
-        }
-      }
-
-      // Save metadata to MongoDB
-      const screenCapture = await CapturedImage.create({
-        imageId: `${originalImageId}_screen_${screenNumber}_display`,
-        cameraId,
-        cameraLabel: `Screen ${screenNumber} Display`,
-        s3Url,
-        s3Key,
-        localUrl,
-        storageType: finalStorageType,
-        timestamp: new Date(timestampNum),
-      });
-
-      console.log(`📸 Screen ${screenNumber} display captured and saved`);
-
-      // Broadcast screen capture to collage screen
+      // Skip saving screen capture to avoid duplicates
+      // Just broadcast the event for collage updates
       const socketService = getSocketService();
       const screen = await Screen.findOne({ screenId });
+      
+      console.log(`📸 Screen display captured and broadcasted (not saved to avoid duplicates)`);
+      
       socketService.broadcastScreenCapture(screenId, {
-        imageUrl: s3Url || localUrl,
+        imageUrl: '', // Empty since we're not saving
         rotation: screen?.rotation || 0,
         position: screen?.collagePosition,
         screenLabel: screen?.label,
-        timestamp: timestampNum,
+        timestamp: typeof timestamp === 'string' ? new Date(timestamp).getTime() : timestamp,
       });
 
-      res.status(201).json(screenCapture);
+      res.status(201).json({ message: 'Screen capture broadcasted' });
     } catch (error) {
-      console.error('Error saving screen capture:', error);
+      console.error('Error broadcasting screen capture:', error);
       res.status(500).json({
         error: 'INTERNAL_SERVER_ERROR',
-        message: 'Failed to save screen capture',
+        message: 'Failed to broadcast screen capture',
       });
     }
   }
