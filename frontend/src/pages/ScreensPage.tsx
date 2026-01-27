@@ -198,6 +198,9 @@ function ScreensPage() {
     }
   }, [currentImageIndex, allImages]);
 
+  useEffect(() => {
+    initializeScreen();
+
     return () => {
       if (socketRef.current) {
         socketRef.current.disconnect();
