@@ -13,7 +13,7 @@ class CollageService {
   /**
    * Generate collages for both orientations from all images in a folder
    */
-  async generateCollage(folderPath: string): Promise<string[]> {
+  async generateCollage(folderPath: string, screenResolution?: { width: number; height: number }): Promise<string[]> {
     try {
       const fullFolderPath = path.join(this.basePath, folderPath);
       
@@ -40,14 +40,25 @@ class CollageService {
         collageSavePath = path.join(this.basePath, pathParts[0]);
       }
 
-      // Generate landscape collage (1920x1080)
-      const landscapeBuffer = await this.createCollageFromImages(imageFiles, 'landscape');
+      // Use screen resolution if provided, otherwise use default sizes
+      const defaultLandscape = { width: 1920, height: 1160 };
+      const defaultPortrait = { width: 1080, height: 2000 };
+      
+      const landscapeSize = screenResolution && screenResolution.width > screenResolution.height 
+        ? screenResolution 
+        : defaultLandscape;
+      const portraitSize = screenResolution && screenResolution.height > screenResolution.width 
+        ? screenResolution 
+        : defaultPortrait;
+
+      // Generate landscape collage
+      const landscapeBuffer = await this.createCollageFromImages(imageFiles, 'landscape', landscapeSize);
       const landscapePath = path.join(collageSavePath, 'collage_landscape.jpg');
       fs.writeFileSync(landscapePath, landscapeBuffer);
       collagePaths.push(landscapePath);
 
-      // Generate portrait collage (1080x1920)
-      const portraitBuffer = await this.createCollageFromImages(imageFiles, 'portrait');
+      // Generate portrait collage
+      const portraitBuffer = await this.createCollageFromImages(imageFiles, 'portrait', portraitSize);
       const portraitPath = path.join(collageSavePath, 'collage_portrait.jpg');
       fs.writeFileSync(portraitPath, portraitBuffer);
       collagePaths.push(portraitPath);
@@ -64,8 +75,8 @@ class CollageService {
   /**
    * Generate collage and upload to S3 if configured
    */
-  async generateCollageWithS3Upload(folderPath: string): Promise<{ localPaths: string[]; s3Urls?: string[] }> {
-    const localPaths = await this.generateCollage(folderPath);
+  async generateCollageWithS3Upload(folderPath: string, screenResolution?: { width: number; height: number }): Promise<{ localPaths: string[]; s3Urls?: string[] }> {
+    const localPaths = await this.generateCollage(folderPath, screenResolution);
     
     try {
       // Import S3 service dynamically to avoid circular dependencies
@@ -124,12 +135,12 @@ class CollageService {
   /**
    * Create a collage from an array of image file paths with creative layouts
    */
-  private async createCollageFromImages(imagePaths: string[], orientation: 'landscape' | 'portrait'): Promise<Buffer> {
+  private async createCollageFromImages(imagePaths: string[], orientation: 'landscape' | 'portrait', canvasSize?: { width: number; height: number }): Promise<Buffer> {
     const imageCount = imagePaths.length;
     
-    // Canvas dimensions
-    const canvasWidth = orientation === 'landscape' ? 1920 : 1080;
-    const canvasHeight = orientation === 'landscape' ? 1160 : 2000; // Leave space for logo
+    // Use provided canvas size or defaults
+    const canvasWidth = canvasSize?.width || (orientation === 'landscape' ? 1920 : 1080);
+    const canvasHeight = canvasSize?.height || (orientation === 'landscape' ? 1160 : 2000);
     
     console.log(`🎨 Creating ${orientation} creative collage (${canvasWidth}x${canvasHeight}px) from ${imageCount} images`);
 
@@ -206,11 +217,20 @@ class CollageService {
     // Calculate grid dimensions
     const { rows, cols } = this.calculateOptimalGrid(imageCount);
     
-    // Calculate cell dimensions
-    const cellWidth = (canvasWidth - (cols + 1) * padding) / cols;
-    const cellHeight = (canvasHeight - (rows + 1) * padding) / rows;
+    // Calculate cell dimensions and ensure they fit in canvas
+    let cellWidth = (canvasWidth - (cols + 1) * padding) / cols;
+    let cellHeight = (canvasHeight - (rows + 1) * padding) / rows;
     
-    // Create array of grid positions
+    // Ensure minimum cell size and adjust if needed
+    const minCellSize = 100; // Minimum 100px per cell
+    if (cellWidth < minCellSize || cellHeight < minCellSize) {
+      // Reduce padding if cells are too small
+      const newPadding = Math.max(10, padding / 2);
+      cellWidth = (canvasWidth - (cols + 1) * newPadding) / cols;
+      cellHeight = (canvasHeight - (rows + 1) * newPadding) / rows;
+    }
+    
+    // Create array of grid positions for only the photos we have
     const gridPositions = [];
     for (let i = 0; i < imageCount; i++) {
       const row = Math.floor(i / cols);
@@ -225,13 +245,21 @@ class CollageService {
     }
     
     const layout = [];
+    const actualPadding = cellWidth < minCellSize || cellHeight < minCellSize ? Math.max(10, padding / 2) : padding;
     
     for (let i = 0; i < imageCount; i++) {
       const { row, col } = gridPositions[i];
       
       // Base position in grid
-      const baseX = col * (cellWidth + padding) + padding;
-      const baseY = row * (cellHeight + padding) + padding;
+      const baseX = col * (cellWidth + actualPadding) + actualPadding;
+      const baseY = row * (cellHeight + actualPadding) + actualPadding;
+      
+      // Ensure we don't go outside canvas bounds
+      const maxX = canvasWidth - cellWidth - actualPadding;
+      const maxY = canvasHeight - cellHeight - actualPadding;
+      
+      const safeX = Math.min(baseX, maxX);
+      const safeY = Math.min(baseY, maxY);
       
       // Add some creative variation within each cell (but no overlap)
       const sizeVariation = 0.85 + Math.random() * 0.15; // 85-100% of cell size
@@ -239,17 +267,17 @@ class CollageService {
       const height = Math.floor(cellHeight * sizeVariation);
       
       // Center the photo in its cell
-      const x = baseX + (cellWidth - width) / 2;
-      const y = baseY + (cellHeight - height) / 2;
+      const x = safeX + (cellWidth - width) / 2;
+      const y = safeY + (cellHeight - height) / 2;
       
       // Add slight rotation for creativity (but keep it small)
       const rotation = (Math.random() - 0.5) * 10; // -5 to +5 degrees
       
       layout.push({
-        x: Math.floor(x),
-        y: Math.floor(y),
-        width,
-        height,
+        x: Math.max(0, Math.floor(x)),
+        y: Math.max(0, Math.floor(y)),
+        width: Math.min(width, canvasWidth - Math.floor(x)),
+        height: Math.min(height, canvasHeight - Math.floor(y)),
         rotation: Math.floor(rotation),
         border: Math.random() > 0.4 // 60% chance of border
       });
@@ -259,7 +287,7 @@ class CollageService {
   }
 
   /**
-   * Calculate optimal grid dimensions for image count
+   * Calculate optimal grid dimensions for image count that fits in canvas
    */
   private calculateOptimalGrid(imageCount: number): { rows: number, cols: number } {
     if (imageCount === 1) return { rows: 1, cols: 1 };
@@ -271,10 +299,17 @@ class CollageService {
     if (imageCount <= 12) return { rows: 3, cols: 4 };
     if (imageCount <= 16) return { rows: 4, cols: 4 };
     if (imageCount <= 20) return { rows: 4, cols: 5 };
+    if (imageCount <= 25) return { rows: 5, cols: 5 };
     
-    // For larger counts, calculate dynamically
+    // For larger counts, calculate to fit screen
     const cols = Math.ceil(Math.sqrt(imageCount));
     const rows = Math.ceil(imageCount / cols);
+    
+    // Ensure we don't exceed reasonable limits (max 6x6 grid)
+    if (rows > 6 || cols > 6) {
+      return { rows: 6, cols: 6 };
+    }
+    
     return { rows, cols };
   }
 
