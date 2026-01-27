@@ -25,10 +25,14 @@ pm2 logs frontend
 docker network connect paparazzi-network mongodb
 
 cd ~/Paparazzi-PhotoBooth/backend
-docker run -d -p 8800:8800 \
-  -v ~/Paparazzi-PhotoBooth/backend:/app \
-  -v ~/Paparazzi-PhotoBooth/backend/photos:/home/ubuntu/Paparazzi-PhotoBooth/backend/photos \
-  -w /app --name paparazzi-backend --network paparazzi-network node:24 npm run dev
-
+docker run -d \
+  -p 8800:8800 \
+  -v /home/ubuntu/Paparazzi-PhotoBooth:/app \
+  -w /app/backend \
+  --name paparazzi-backend \
+  --network paparazzi-network \
+  node:24 \
+  npm run dev
+  
 cd ~/Paparazzi-PhotoBooth/frontend
 docker run -d -p 5173:5173 -v ~/Paparazzi-PhotoBooth/frontend:/app -w /app --name paparazzi-frontend --network paparazzi-network node:24 npm run dev -- --host

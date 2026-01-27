@@ -8,8 +8,9 @@ export class SessionService {
 
     // If no session or session is too old, create new one
     if (!existing || now - existing.timestamp > this.SESSION_TIMEOUT) {
-      const date = new Date(now);
-      const timeFolder = `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}:${date.getSeconds().toString().padStart(2, "0")}_${date.getDate().toString().padStart(2, "0")}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getFullYear()}_${groupId}`;
+      // Convert to IST (UTC+5:30)
+      const date = new Date(now + (5.5 * 60 * 60 * 1000));
+      const timeFolder = `${date.getUTCHours().toString().padStart(2, "0")}:${date.getUTCMinutes().toString().padStart(2, "0")}:${date.getUTCSeconds().toString().padStart(2, "0")}_${date.getUTCDate().toString().padStart(2, "0")}-${(date.getUTCMonth() + 1).toString().padStart(2, "0")}-${date.getUTCFullYear()}_${groupId}`;
 
       const session = { timestamp: now, folder: timeFolder };
       this.groupSessions.set(groupId, session);
