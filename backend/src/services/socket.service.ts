@@ -14,7 +14,7 @@ export class SocketService {
         origin: '*',
         methods: ['GET', 'POST'],
         allowedHeaders: ['Content-Type'],
-        credentials: false
+        credentials: true
       },
       allowEIO3: true,
       transports: ['websocket', 'polling']
