@@ -60,6 +60,7 @@ function CameraPage() {
       socketConnection.on(
         "camera:status",
         ({ isPrimary }: { isPrimary: boolean }) => {
+          console.log(`📷 Camera status updated: ${isPrimary ? "PRIMARY" : "SECONDARY"}`);
           setIsPrimaryCamera(isPrimary);
           console.log(
             `📷 Camera status: ${isPrimary ? "PRIMARY" : "SECONDARY"}`,
