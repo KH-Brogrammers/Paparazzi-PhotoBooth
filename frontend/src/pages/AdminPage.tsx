@@ -440,6 +440,12 @@ function AdminPage() {
     );
   };
 
+  const handleMakePrimary = (deviceId: string) => {
+    const socket = socketClient.connect();
+    socket.emit("admin:make-primary", { deviceId });
+    console.log(`🎯 Making camera primary: ${deviceId}`);
+  };
+
   if (loading) {
     return (
       <div className="flex w-full items-center justify-center h-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
@@ -766,6 +772,14 @@ function AdminPage() {
                             ? "🎯 PRIMARY"
                             : "📷 SECONDARY"}
                         </span>
+                        {camera.role !== "PRIMARY" && (
+                          <button
+                            onClick={() => handleMakePrimary(camera.deviceId)}
+                            className="text-green-400 hover:text-green-300 text-sm px-2 py-1 rounded bg-green-900/20 border border-green-600"
+                          >
+                            🎯 Make Primary
+                          </button>
+                        )}
                         <button
                           onClick={() =>
                             handleRenameCamera(camera.deviceId, camera.label)
