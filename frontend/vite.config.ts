@@ -12,7 +12,7 @@ export default defineConfig(({ mode }) => {
       host: true,       
       port: 5173,
       strictPort: true,
-      allowedHosts: ['*'],
+      allowedHosts: ['magictap.app'],
       hmr: {
         host: env.VITE_API_BACKEND_URL 
                 ? env.VITE_API_BACKEND_URL.replace(/^https?:\/\//, '') 
