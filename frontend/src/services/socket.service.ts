@@ -10,11 +10,13 @@ class SocketClient {
   connect(): Socket {
     if (!this.socket) {
       this.socket = io(SOCKET_URL, {
-        transports: ['websocket', 'polling'],
+        transports: ['polling', 'websocket'],
+        timeout: 20000,
+        forceNew: true,
         reconnection: true,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
-        reconnectionAttempts: Infinity,
+        reconnectionDelay: 2000,
+        reconnectionDelayMax: 10000,
+        reconnectionAttempts: 5,
       });
 
       this.socket.on('connect', () => {
