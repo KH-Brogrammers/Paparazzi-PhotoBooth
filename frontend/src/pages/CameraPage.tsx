@@ -60,17 +60,10 @@ function CameraPage() {
       socketConnection.on(
         "camera:status",
         ({ isPrimary }: { isPrimary: boolean }) => {
-          console.log(`📷 Camera status updated: ${isPrimary ? "PRIMARY" : "SECONDARY"}`);
-          console.log(`📷 Previous status: ${isPrimaryCamera ? "PRIMARY" : "SECONDARY"}`);
           setIsPrimaryCamera(isPrimary);
           console.log(
-            `📷 New camera status: ${isPrimary ? "PRIMARY" : "SECONDARY"}`,
+            `📷 Camera status: ${isPrimary ? "PRIMARY" : "SECONDARY"}`,
           );
-          
-          // Force a small UI update to ensure re-render
-          if (isPrimary !== isPrimaryCamera) {
-            console.log(`🔄 Camera role changed! Controls will ${isPrimary ? 'show' : 'hide'}`);
-          }
         },
       );
 
@@ -85,8 +78,7 @@ function CameraPage() {
         console.log("📸 Executing capture command");
         setShowCapturedMessage(true);
         setTimeout(() => setShowCapturedMessage(false), 2000);
-        // Execute capture directly, bypassing primary check
-        executeCapture();
+        handleCaptureAll();
       });
 
       // Listen for refresh commands from primary
@@ -167,10 +159,18 @@ function CameraPage() {
     };
   }, [canSwitchCamera, switchCamera]);
 
-  const executeCapture = async () => {
+  const handleCaptureAll = async () => {
     if (isCapturing || cameras.length === 0) return;
 
-    // Execute capture
+    // If primary camera, send command to all cameras
+    if (isPrimaryCamera && socket) {
+      setShowCapturedMessage(true);
+      setTimeout(() => setShowCapturedMessage(false), 2000);
+      socket.emit("camera:capture-all");
+      return;
+    }
+
+    // Execute capture (for both primary and secondary when commanded)
     cameraRefs.current[0]?.showFlash();
 
     try {
@@ -196,20 +196,6 @@ function CameraPage() {
       console.error("Error capturing image:", error);
     }
   };
-
-  const handleCaptureAll = async () => {
-    if (isCapturing || cameras.length === 0) return;
-
-    // If primary camera, send command to all cameras
-    if (isPrimaryCamera && socket) {
-      setShowCapturedMessage(true);
-      setTimeout(() => setShowCapturedMessage(false), 2000);
-      socket.emit("camera:capture-all");
-      return;
-    }
-
-    // Execute capture for non-primary cameras or when called directly
-    await executeCapture();
   };
 
   const handleClearScreens = async () => {
