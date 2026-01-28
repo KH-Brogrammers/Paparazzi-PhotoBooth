@@ -80,6 +80,7 @@ const CameraCard = forwardRef<CameraCardRef, CameraCardProps>(
             autoPlay
             playsInline
             muted
+            webkit-playsinline="true"
             className="object-cover h-full w-full max-h-full"
           />
 

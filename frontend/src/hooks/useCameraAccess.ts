@@ -1,6 +1,28 @@
 import { useState, useEffect, useRef } from 'react';
 import { type Camera } from '../types/camera.types';
 
+// Enhanced iOS detection utility
+const detectDevice = () => {
+  const userAgent = navigator.userAgent;
+  const isIOS = /iPad|iPhone|iPod/.test(userAgent);
+  const isSafari = /^((?!chrome|android).)*safari/i.test(userAgent);
+  const isWebKit = /webkit/i.test(userAgent);
+  
+  // Detect specific iOS versions for compatibility
+  const iosVersion = isIOS ? parseFloat(
+    (userAgent.match(/OS (\d+)_(\d+)_?(\d+)?/) || [])[1] + '.' + 
+    ((userAgent.match(/OS (\d+)_(\d+)_?(\d+)?/) || [])[2] || '0')
+  ) : null;
+
+  return {
+    isIOS,
+    isSafari,
+    isWebKit,
+    iosVersion,
+    needsWebkitPlaysinline: isIOS && iosVersion && iosVersion < 10
+  };
+};
+
 // Generate unique device identifier (without timestamp for consistency)
 const generateDeviceFingerprint = async (): Promise<string> => {
   // Use a combination of screen resolution and user agent hash (no timestamp)
@@ -43,6 +65,10 @@ export function useCameraAccess() {
         throw new Error('Camera API is not supported in this browser');
       }
 
+      // Detect iOS/iPhone/iPad for enhanced compatibility
+      const deviceInfo = detectDevice();
+      console.log(`📱 Device detection:`, deviceInfo);
+
       // Get all video input devices first
       let devices = await navigator.mediaDevices.enumerateDevices();
       let videoDevices = devices.filter(
@@ -52,9 +78,31 @@ export function useCameraAccess() {
       // If no devices found or labels are empty, request permission first
       if (videoDevices.length === 0 || !videoDevices[0].label) {
         console.log('Requesting camera permission...');
-        const permissionStream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-        });
+        
+        // iOS-specific permission request with multiple fallbacks
+        let permissionStream;
+        if (deviceInfo.isIOS) {
+          try {
+            // Try with specific iOS constraints first
+            permissionStream = await navigator.mediaDevices.getUserMedia({
+              video: { 
+                facingMode: 'environment',
+                width: { min: 640, ideal: 1280, max: 1920 },
+                height: { min: 480, ideal: 720, max: 1080 }
+              }
+            });
+          } catch (iosErr) {
+            console.log('📱 iOS specific constraints failed, trying basic...');
+            // Fallback to basic constraints
+            permissionStream = await navigator.mediaDevices.getUserMedia({
+              video: true
+            });
+          }
+        } else {
+          permissionStream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+          });
+        }
 
         // Stop the permission stream
         permissionStream.getTracks().forEach((track) => track.stop());
@@ -102,17 +150,77 @@ export function useCameraAccess() {
           console.log(`Initializing camera: ${device.label || device.deviceId}`);
           
           let constraints;
+          let stream;
           
-          // Always force rear camera for all devices
-          constraints = {
-            video: {
-              facingMode: 'environment', // Force rear camera
-              width: { ideal: 1920 },
-              height: { ideal: 1080 },
-            },
-          };
+          // iOS/iPhone specific constraints with multiple fallbacks
+          if (deviceInfo.isIOS) {
+            console.log('📱 Using iOS-optimized camera constraints');
+            
+            // Try multiple constraint configurations for iOS
+            const iosConstraints = [
+              // First attempt: High quality with exact rear camera
+              {
+                video: {
+                  facingMode: { exact: 'environment' },
+                  width: { min: 640, ideal: 1280, max: 1920 },
+                  height: { min: 480, ideal: 720, max: 1080 },
+                  frameRate: { ideal: 30, max: 60 }
+                }
+              },
+              // Second attempt: Medium quality with preferred rear camera
+              {
+                video: {
+                  facingMode: 'environment',
+                  width: { ideal: 1280 },
+                  height: { ideal: 720 }
+                }
+              },
+              // Third attempt: Basic rear camera
+              {
+                video: {
+                  facingMode: 'environment'
+                }
+              },
+              // Fourth attempt: Any rear camera (for older iOS)
+              {
+                video: {
+                  facingMode: { ideal: 'environment' }
+                }
+              },
+              // Final fallback: Any camera
+              {
+                video: true
+              }
+            ];
 
-          const stream = await navigator.mediaDevices.getUserMedia(constraints);
+            let lastError;
+            for (const constraint of iosConstraints) {
+              try {
+                console.log('📱 Trying iOS constraint:', constraint);
+                stream = await navigator.mediaDevices.getUserMedia(constraint);
+                console.log('📱 iOS constraint successful!');
+                break;
+              } catch (err) {
+                console.log('📱 iOS constraint failed, trying next...', err);
+                lastError = err;
+              }
+            }
+
+            if (!stream) {
+              throw lastError || new Error('All iOS camera constraints failed');
+            }
+          } else {
+            // Standard constraints for other devices
+            constraints = {
+              video: {
+                facingMode: 'environment', // Force rear camera
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+              },
+            };
+            stream = await navigator.mediaDevices.getUserMedia(constraints);
+          }
+
           streamsRef.current.set(device.deviceId, stream);
 
           initializedCameras.push({
@@ -121,9 +229,9 @@ export function useCameraAccess() {
             stream,
           });
 
-          console.log(`Successfully initialized: ${device.label || device.deviceId}`);
+          console.log(`✅ Successfully initialized: ${device.label || device.deviceId}`);
         } catch (err) {
-          console.error(`Failed to initialize camera ${device.label || device.deviceId}:`, err);
+          console.error(`❌ Failed to initialize camera ${device.label || device.deviceId}:`, err);
         }
       }
 
@@ -154,13 +262,67 @@ export function useCameraAccess() {
     try {
       stopCamera(deviceId);
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: 'environment', // Always rear camera
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-        },
-      });
+      // Detect iOS for enhanced compatibility
+      const deviceInfo = detectDevice();
+      let stream;
+
+      if (deviceInfo.isIOS) {
+        console.log('📱 Restarting camera with iOS-optimized constraints');
+        
+        // Try multiple constraint configurations for iOS
+        const iosConstraints = [
+          {
+            video: {
+              facingMode: { exact: 'environment' },
+              width: { min: 640, ideal: 1280, max: 1920 },
+              height: { min: 480, ideal: 720, max: 1080 },
+              frameRate: { ideal: 30, max: 60 }
+            }
+          },
+          {
+            video: {
+              facingMode: 'environment',
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            }
+          },
+          {
+            video: {
+              facingMode: 'environment'
+            }
+          },
+          {
+            video: {
+              facingMode: { ideal: 'environment' }
+            }
+          },
+          {
+            video: true
+          }
+        ];
+
+        let lastError;
+        for (const constraint of iosConstraints) {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia(constraint);
+            break;
+          } catch (err) {
+            lastError = err;
+          }
+        }
+
+        if (!stream) {
+          throw lastError || new Error('All iOS camera restart constraints failed');
+        }
+      } else {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: 'environment', // Always rear camera
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
+        });
+      }
 
       streamsRef.current.set(deviceId, stream);
 
