@@ -85,7 +85,8 @@ function CameraPage() {
         console.log("📸 Executing capture command");
         setShowCapturedMessage(true);
         setTimeout(() => setShowCapturedMessage(false), 2000);
-        handleCaptureAll();
+        // Execute capture directly, bypassing primary check
+        executeCapture();
       });
 
       // Listen for refresh commands from primary
@@ -166,18 +167,10 @@ function CameraPage() {
     };
   }, [canSwitchCamera, switchCamera]);
 
-  const handleCaptureAll = async () => {
+  const executeCapture = async () => {
     if (isCapturing || cameras.length === 0) return;
 
-    // If primary camera, send command to all cameras
-    if (isPrimaryCamera && socket) {
-      setShowCapturedMessage(true);
-      setTimeout(() => setShowCapturedMessage(false), 2000);
-      socket.emit("camera:capture-all");
-      return;
-    }
-
-    // Execute capture (for both primary and secondary when commanded)
+    // Execute capture
     cameraRefs.current[0]?.showFlash();
 
     try {
@@ -202,6 +195,21 @@ function CameraPage() {
     } catch (error) {
       console.error("Error capturing image:", error);
     }
+  };
+
+  const handleCaptureAll = async () => {
+    if (isCapturing || cameras.length === 0) return;
+
+    // If primary camera, send command to all cameras
+    if (isPrimaryCamera && socket) {
+      setShowCapturedMessage(true);
+      setTimeout(() => setShowCapturedMessage(false), 2000);
+      socket.emit("camera:capture-all");
+      return;
+    }
+
+    // Execute capture for non-primary cameras or when called directly
+    await executeCapture();
   };
 
   const handleClearScreens = async () => {
