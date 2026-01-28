@@ -162,7 +162,7 @@ function ScreensPage() {
       });
 
       // Listen for screen details toggle
-      socket.on("screen:toggle-details", ({ show }) => {
+      socket.on("admin:toggle-screen-details", ({ show }) => {
         console.log(`📺 Screen details toggle: ${show ? "show" : "hide"}`);
         setShowDetails(show);
       });
