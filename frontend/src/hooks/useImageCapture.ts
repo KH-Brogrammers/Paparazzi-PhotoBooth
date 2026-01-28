@@ -4,6 +4,7 @@ import { apiService } from '../services/api.service';
 import { storageService } from '../services/storage.service';
 import { imageApi } from '../services/backend-api.service';
 import { dataURLtoBlob, generateId, sanitizeFileName } from '../utils/helpers';
+import { isIOS } from '../utils/camera-utils';
 
 export function useImageCapture() {
   const [isCapturing, setIsCapturing] = useState(false);
@@ -16,6 +17,15 @@ export function useImageCapture() {
     try {
       setIsCapturing(true);
 
+      // Validate video element
+      if (!videoElement || videoElement.videoWidth === 0 || videoElement.videoHeight === 0) {
+        console.error('Invalid video element or dimensions');
+        setIsCapturing(false);
+        return null;
+      }
+
+      console.log('📸 Capturing from video:', videoElement.videoWidth, 'x', videoElement.videoHeight);
+
       // Create canvas to capture the frame
       const canvas = document.createElement('canvas');
       canvas.width = videoElement.videoWidth;
@@ -26,16 +36,50 @@ export function useImageCapture() {
         throw new Error('Failed to get canvas context');
       }
 
+      // iOS-specific canvas handling
+      if (isIOS()) {
+        // Ensure canvas is properly sized for iOS
+        canvas.style.width = `${videoElement.videoWidth}px`;
+        canvas.style.height = `${videoElement.videoHeight}px`;
+        
+        // Set canvas attributes for better iOS compatibility
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+      }
+
       // Draw the current video frame
       ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
 
-      // Convert to WebP format
-      const dataUrl = canvas.toDataURL('image/webp', 0.95);
-      const blob = dataURLtoBlob(dataUrl);
+      // Convert to WebP format with fallback for iOS
+      let dataUrl: string;
+      let format = 'image/webp';
+      
+      try {
+        dataUrl = canvas.toDataURL('image/webp', 0.95);
+        // Check if WebP is actually supported (some iOS versions don't support it)
+        if (dataUrl.startsWith('data:image/webp')) {
+          format = 'image/webp';
+        } else {
+          throw new Error('WebP not supported');
+        }
+      } catch (webpError) {
+        console.warn('WebP not supported, falling back to JPEG');
+        dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+        format = 'image/jpeg';
+      }
 
+      // Validate the captured data
+      if (!dataUrl || dataUrl === 'data:,') {
+        throw new Error('Failed to capture image data');
+      }
+
+      const blob = dataURLtoBlob(dataUrl);
       const imageId = generateId();
       const timestamp = Date.now();
-      const fileName = `${sanitizeFileName(cameraLabel)}_${timestamp}.webp`;
+      const fileExtension = format === 'image/webp' ? 'webp' : 'jpg';
+      const fileName = `${sanitizeFileName(cameraLabel)}_${timestamp}.${fileExtension}`;
+
+      console.log(`📸 Captured image: ${canvas.width}x${canvas.height}, format: ${format}, size: ${Math.round(blob.size / 1024)}KB`);
 
       // Save to backend (which handles both S3 and local storage)
       try {

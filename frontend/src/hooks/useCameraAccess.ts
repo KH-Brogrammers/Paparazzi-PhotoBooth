@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { type Camera } from '../types/camera.types';
+import { getDeviceType, getOptimalVideoConstraints, getCameraErrorMessage, requestCameraPermission } from '../utils/camera-utils';
 
 // Generate unique device identifier (without timestamp for consistency)
 const generateDeviceFingerprint = async (): Promise<string> => {
@@ -38,33 +39,28 @@ export function useCameraAccess() {
       setIsLoading(true);
       setError(null);
 
+      const deviceType = getDeviceType();
+      console.log(`🔍 Detected device type: ${deviceType}`);
+
       // Check if mediaDevices is supported
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         throw new Error('Camera API is not supported in this browser');
       }
 
-      // Get all video input devices first
+      // Request permission first with device-specific approach
+      console.log('📱 Requesting camera permission...');
+      const hasPermission = await requestCameraPermission(deviceType);
+      if (!hasPermission) {
+        throw new Error('Camera permission denied');
+      }
+
+      // Get all video input devices
       let devices = await navigator.mediaDevices.enumerateDevices();
       let videoDevices = devices.filter(
         (device) => device.kind === 'videoinput'
       );
 
-      // If no devices found or labels are empty, request permission first
-      if (videoDevices.length === 0 || !videoDevices[0].label) {
-        console.log('Requesting camera permission...');
-        const permissionStream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-        });
-
-        // Stop the permission stream
-        permissionStream.getTracks().forEach((track) => track.stop());
-
-        // Re-enumerate devices to get labels
-        devices = await navigator.mediaDevices.enumerateDevices();
-        videoDevices = devices.filter(
-          (device) => device.kind === 'videoinput'
-        );
-      }
+      console.log(`Found ${videoDevices.length} camera device(s):`, videoDevices);
 
       if (videoDevices.length === 0) {
         setError('No cameras found on this device');
@@ -72,14 +68,9 @@ export function useCameraAccess() {
         return;
       }
 
-      console.log(`Found ${videoDevices.length} camera(s):`, videoDevices);
-
-      // Force rear camera for ALL devices - no front camera support
-      console.log('🎯 Forcing REAR camera only for ALL devices');
-      
       // Create unique device identifier
       const deviceFingerprint = await generateDeviceFingerprint();
-      const deviceIndex = Math.floor(Math.random() * 999) + 1; // Random 3-digit number
+      const deviceIndex = Math.floor(Math.random() * 999) + 1;
       
       // Always use rear camera regardless of device type
       const rearCameraDevices = [
@@ -91,39 +82,63 @@ export function useCameraAccess() {
         }
       ];
 
-      videoDevices = rearCameraDevices;
-      console.log('✅ All devices forced to use REAR camera only with unique ID:', deviceFingerprint);
+      console.log(`🎯 Forcing REAR camera only for ${deviceType.toUpperCase()} device`);
 
-      // Initialize cameras with streams one by one
+      // Initialize cameras with device-specific constraints
       const initializedCameras: Camera[] = [];
 
-      for (const device of videoDevices) {
+      for (const device of rearCameraDevices) {
         try {
-          console.log(`Initializing camera: ${device.label || device.deviceId}`);
+          console.log(`📷 Initializing camera: ${device.label}`);
           
-          let constraints;
+          // Get optimal constraints for this device type
+          const videoConstraints = getOptimalVideoConstraints(deviceType);
           
-          // Always force rear camera for all devices
-          constraints = {
-            video: {
-              facingMode: 'environment', // Force rear camera
-              width: { ideal: 1920 },
-              height: { ideal: 1080 },
-            },
+          const constraints = {
+            video: videoConstraints
           };
+
+          console.log(`📋 Using constraints for ${deviceType}:`, constraints);
 
           const stream = await navigator.mediaDevices.getUserMedia(constraints);
           streamsRef.current.set(device.deviceId, stream);
 
           initializedCameras.push({
             deviceId: device.deviceId,
-            label: device.label || `Camera ${initializedCameras.length + 1}`,
+            label: device.label,
             stream,
           });
 
-          console.log(`Successfully initialized: ${device.label || device.deviceId}`);
-        } catch (err) {
-          console.error(`Failed to initialize camera ${device.label || device.deviceId}:`, err);
+          console.log(`✅ Successfully initialized: ${device.label}`);
+        } catch (err: any) {
+          console.error(`❌ Failed to initialize camera ${device.label}:`, err);
+          
+          // For iOS, try fallback constraints if the optimal ones fail
+          if (deviceType === 'ios') {
+            try {
+              console.log('🔄 Trying iOS fallback constraints...');
+              const fallbackConstraints = {
+                video: {
+                  facingMode: 'environment',
+                  width: { ideal: 1280 },
+                  height: { ideal: 720 },
+                }
+              };
+              
+              const stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
+              streamsRef.current.set(device.deviceId, stream);
+
+              initializedCameras.push({
+                deviceId: device.deviceId,
+                label: device.label,
+                stream,
+              });
+
+              console.log(`✅ iOS fallback successful: ${device.label}`);
+            } catch (fallbackErr) {
+              console.error(`❌ iOS fallback also failed:`, fallbackErr);
+            }
+          }
         }
       }
 
@@ -134,10 +149,9 @@ export function useCameraAccess() {
       setCameras(initializedCameras);
       setIsLoading(false);
     } catch (err: any) {
-      console.error('Error accessing cameras:', err);
-      setError(
-        err.message || 'Failed to access cameras. Please ensure camera permissions are granted.'
-      );
+      console.error('❌ Error accessing cameras:', err);
+      const deviceType = getDeviceType();
+      setError(getCameraErrorMessage(err, deviceType));
       setIsLoading(false);
     }
   };
@@ -154,12 +168,11 @@ export function useCameraAccess() {
     try {
       stopCamera(deviceId);
 
+      const deviceType = getDeviceType();
+      const videoConstraints = getOptimalVideoConstraints(deviceType);
+      
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: 'environment', // Always rear camera
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-        },
+        video: videoConstraints
       });
 
       streamsRef.current.set(deviceId, stream);
