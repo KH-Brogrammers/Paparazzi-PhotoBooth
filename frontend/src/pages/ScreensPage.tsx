@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { socketClient } from "../services/socket.service";
 import { screenApi } from "../services/backend-api.service";
-import { detectScreens, getCurrentScreenInfo } from "../utils/screenDetection";
+import { detectScreens, getCurrentScreenInfo, generateScreenId } from "../utils/screenDetection";
+import { generateId } from "../utils/helpers";
 import { type ImageData } from "../types/screen.types";
 import LogoPlaceholder from "../components/LogoPlaceholder";
 
@@ -65,8 +66,13 @@ function ScreensPage() {
 
       let screenInfo;
       if (screens.length > 0) {
-        // Window Placement API is available
-        screenInfo = screens[0]; // Use first detected screen for now
+        // Window Placement API is available, but use unique ID for each tab
+        const detectedScreen = screens[0];
+        screenInfo = {
+          ...detectedScreen,
+          screenId: generateScreenId(), // Always use unique ID for each tab
+          label: `${detectedScreen.label} - Tab ${generateId().slice(-3)}` // Add tab identifier
+        };
         console.log(
           "✅ Screen detected using Window Placement API:",
           screenInfo,

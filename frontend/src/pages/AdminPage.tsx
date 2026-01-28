@@ -479,6 +479,12 @@ function AdminPage() {
                   : "👁️ Show Screen Details"}
               </button>
               <button
+                onClick={loadData}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors"
+              >
+                🔄 Refresh Screens
+              </button>
+              <button
                 onClick={handleHardRefresh}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors"
               >
