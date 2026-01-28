@@ -2,14 +2,17 @@ import { io, Socket } from 'socket.io-client';
 
 const SOCKET_URL = import.meta.env.VITE_API_BACKEND_URL || 'http://localhost:8800';
 
-console.log('🔗 Socket URL:', SOCKET_URL);
+// Force HTTP for websockets (convert https to http for devtunnels)
+const WS_SOCKET_URL = SOCKET_URL.replace('https://', 'http://');
+
+console.log('🔗 Socket URL:', WS_SOCKET_URL);
 
 class SocketClient {
   private socket: Socket | null = null;
 
   connect(): Socket {
     if (!this.socket) {
-      this.socket = io(SOCKET_URL, {
+      this.socket = io(WS_SOCKET_URL, {
         transports: ['websocket', 'polling'],
         upgrade: false,
         forceNew: true,
