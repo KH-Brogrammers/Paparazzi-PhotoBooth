@@ -61,10 +61,16 @@ function CameraPage() {
         "camera:status",
         ({ isPrimary }: { isPrimary: boolean }) => {
           console.log(`📷 Camera status updated: ${isPrimary ? "PRIMARY" : "SECONDARY"}`);
+          console.log(`📷 Previous status: ${isPrimaryCamera ? "PRIMARY" : "SECONDARY"}`);
           setIsPrimaryCamera(isPrimary);
           console.log(
-            `📷 Camera status: ${isPrimary ? "PRIMARY" : "SECONDARY"}`,
+            `📷 New camera status: ${isPrimary ? "PRIMARY" : "SECONDARY"}`,
           );
+          
+          // Force a small UI update to ensure re-render
+          if (isPrimary !== isPrimaryCamera) {
+            console.log(`🔄 Camera role changed! Controls will ${isPrimary ? 'show' : 'hide'}`);
+          }
         },
       );
 

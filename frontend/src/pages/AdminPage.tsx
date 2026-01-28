@@ -92,15 +92,18 @@ function AdminPage() {
       ({ deviceId, isPrimary }: { deviceId: string; isPrimary: boolean }) => {
         console.log("📷 Primary status updated:", deviceId, isPrimary);
         setAllCameras((prev) =>
-          prev.map((camera) =>
-            camera.deviceId === deviceId
-              ? { ...camera, role: isPrimary ? "PRIMARY" : "SECONDARY" }
-              : {
-                  ...camera,
-                  role:
-                    camera.deviceId === deviceId ? camera.role : "SECONDARY",
-                },
-          ),
+          prev.map((camera) => {
+            if (camera.deviceId === deviceId) {
+              // Update the target camera
+              return { ...camera, role: isPrimary ? "PRIMARY" : "SECONDARY" };
+            } else if (isPrimary) {
+              // If target camera became primary, make all others secondary
+              return { ...camera, role: "SECONDARY" };
+            } else {
+              // If target camera became secondary, don't change others
+              return camera;
+            }
+          })
         );
       },
     );

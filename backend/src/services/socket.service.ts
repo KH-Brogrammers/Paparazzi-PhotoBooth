@@ -47,39 +47,54 @@ export class SocketService {
         this.cameraDeviceMap.set(socket.id, cameraId);
         socket.join(`camera:${cameraId}`);
         
-        // Check if there's a saved primary camera
         let isPrimary = false;
+        
+        // Check if there's a saved primary camera
         try {
           const savedPrimary = await PrimaryCamera.findOne();
           if (savedPrimary && savedPrimary.deviceId === cameraId) {
+            // This is the saved primary camera
             isPrimary = true;
             this.primaryCameraSocket = socket.id;
             console.log(`📷 Restored primary camera from database: ${cameraId}`);
           } else if (!this.primaryCameraSocket) {
-            // No saved primary and no current primary, make this one primary
-            const allCameraDeviceIds = Array.from(this.cameraDeviceMap.values()).sort();
-            isPrimary = cameraId === allCameraDeviceIds[0];
-            if (isPrimary) {
-              this.primaryCameraSocket = socket.id;
-            }
+            // No current primary camera, make this one primary
+            isPrimary = true;
+            this.primaryCameraSocket = socket.id;
+            // Save as primary in database
+            await PrimaryCamera.findOneAndUpdate(
+              {},
+              { deviceId: cameraId, updatedAt: new Date() },
+              { upsert: true, new: true }
+            );
+            console.log(`📷 Set as default primary camera: ${cameraId}`);
           }
         } catch (error) {
-          console.error('Error loading primary camera:', error);
-          // Fallback to original logic
-          const allCameraDeviceIds = Array.from(this.cameraDeviceMap.values()).sort();
-          isPrimary = cameraId === allCameraDeviceIds[0];
-          if (isPrimary) {
+          console.error('Error handling primary camera:', error);
+          // Fallback: if no primary exists, make this one primary
+          if (!this.primaryCameraSocket) {
+            isPrimary = true;
             this.primaryCameraSocket = socket.id;
           }
         }
         
         console.log(`📷 Camera registered: ${cameraId} (${socket.id}) - ${isPrimary ? 'PRIMARY' : 'SECONDARY'}`);
         
-        // Send primary/secondary status to camera
+        // Send status to this camera
         socket.emit('camera:status', { isPrimary });
         
-        // Notify admin panels about primary status
+        // Notify admin panels about this camera's status
         this.io.emit('camera:primary-updated', { deviceId: cameraId, isPrimary });
+        
+        // If this became primary, make sure all other cameras are secondary
+        if (isPrimary) {
+          this.cameraDeviceMap.forEach((deviceId, socketId) => {
+            if (socketId !== socket.id) {
+              this.io.to(socketId).emit('camera:status', { isPrimary: false });
+              this.io.emit('camera:primary-updated', { deviceId, isPrimary: false });
+            }
+          });
+        }
       });
 
       // Handle capture command from primary camera
@@ -165,26 +180,27 @@ export class SocketService {
         const targetSocketId = Array.from(this.cameraDeviceMap.entries())
           .find(([_, id]) => id === deviceId)?.[0];
         
+        // Update primary camera reference
+        this.primaryCameraSocket = targetSocketId || null;
+        
+        // Update ALL cameras - make target primary, others secondary
+        this.cameraDeviceMap.forEach((id, socketId) => {
+          const isPrimary = socketId === targetSocketId;
+          console.log(`📤 Sending camera:status to ${id}: ${isPrimary ? 'PRIMARY' : 'SECONDARY'}`);
+          this.io.to(socketId).emit('camera:status', { isPrimary });
+          this.io.emit('camera:primary-updated', { deviceId: id, isPrimary });
+        });
+        
         if (targetSocketId) {
-          // Update primary camera
-          const oldPrimary = this.primaryCameraSocket;
-          this.primaryCameraSocket = targetSocketId;
-          
-          // Notify all cameras of their new status
-          this.cameraDeviceMap.forEach((id, socketId) => {
-            const isPrimary = socketId === targetSocketId;
-            this.io.to(socketId).emit('camera:status', { isPrimary });
-            // Notify admin panels about status change
-            this.io.emit('camera:primary-updated', { deviceId: id, isPrimary });
-            console.log(`📷 Camera ${id}: ${isPrimary ? 'PRIMARY' : 'SECONDARY'}`);
-          });
-          
           console.log(`🎯 Camera ${deviceId} is now PRIMARY`);
         } else {
           console.log(`❌ Camera ${deviceId} not found in connected cameras`);
-          // Still broadcast the update to admin panels in case camera reconnects
+          // Still update admin panel for when camera reconnects
           this.io.emit('camera:primary-updated', { deviceId, isPrimary: true });
         }
+        
+        console.log(`📊 Current primary camera socket: ${this.primaryCameraSocket}`);
+        console.log(`📊 Total connected cameras: ${this.cameraDeviceMap.size}`);
       });
 
       // Handle screen refresh request
