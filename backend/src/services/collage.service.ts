@@ -216,16 +216,16 @@ class CollageService {
           });
         }
 
-        // Add border/shadow effect for some images
-        if (imageLayout.border) {
-          processedImage = processedImage.extend({
-            top: 5,
-            bottom: 5,
-            left: 5,
-            right: 5,
-            background: { r: 0, g: 0, b: 0, alpha: 1 }, // Black border
-          });
-        }
+        // // Add border/shadow effect for some images
+        // if (imageLayout.border) {
+        //   processedImage = processedImage.extend({
+        //     top: 5,
+        //     bottom: 5,
+        //     left: 5,
+        //     right: 5,
+        //     background: { r: 0, g: 0, b: 0, alpha: 1 }, // Black border
+        //   });
+        // }
 
         const imageBuffer = await processedImage
           .jpeg({ quality: 95 })
