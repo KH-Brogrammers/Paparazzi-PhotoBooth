@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iOS Camera Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        video { width: 100%; max-width: 400px; height: 300px; object-fit: cover; }
+        button { padding: 10px 20px; margin: 5px; font-size: 16px; }
+    </style>
+</head>
+<body>
+    <h1>iOS Camera Compatibility Test</h1>
+    
+    <div class="test-section">
+        <h2>Device Detection</h2>
+        <div id="device-info"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Camera Test</h2>
+        <button onclick="testCamera()">Test Camera Access</button>
+        <button onclick="stopCamera()">Stop Camera</button>
+        <div id="camera-status"></div>
+        <video id="test-video" autoplay playsinline muted webkit-playsinline="true"></video>
+    </div>
+
+    <div class="test-section">
+        <h2>Test Results</h2>
+        <div id="test-results"></div>
+    </div>
+
+    <script>
+        // Device detection (same as in useCameraAccess.ts)
+        function detectDevice() {
+            const userAgent = navigator.userAgent;
+            const isIOS = /iPad|iPhone|iPod/.test(userAgent);
+            const isSafari = /^((?!chrome|android).)*safari/i.test(userAgent);
+            const isWebKit = /webkit/i.test(userAgent);
+            
+            const iosVersion = isIOS ? parseFloat(
+                (userAgent.match(/OS (\\d+)_(\\d+)_?(\\d+)?/) || [])[1] + '.' + 
+                ((userAgent.match(/OS (\\d+)_(\\d+)_?(\\d+)?/) || [])[2] || '0')
+            ) : null;
+
+            return {
+                isIOS,
+                isSafari,
+                isWebKit,
+                iosVersion,
+                needsWebkitPlaysinline: isIOS && iosVersion && iosVersion < 10,
+                userAgent
+            };
+        }
+
+        // Display device info
+        function displayDeviceInfo() {
+            const deviceInfo = detectDevice();
+            const deviceInfoDiv = document.getElementById('device-info');
+            
+            deviceInfoDiv.innerHTML = `
+                <div class="info">
+                    <strong>Device Information:</strong><br>
+                    iOS Device: ${deviceInfo.isIOS ? '✅ Yes' : '❌ No'}<br>
+                    Safari Browser: ${deviceInfo.isSafari ? '✅ Yes' : '❌ No'}<br>
+                    WebKit Engine: ${deviceInfo.isWebKit ? '✅ Yes' : '❌ No'}<br>
+                    iOS Version: ${deviceInfo.iosVersion || 'N/A'}<br>
+                    Needs webkit-playsinline: ${deviceInfo.needsWebkitPlaysinline ? '✅ Yes' : '❌ No'}<br>
+                    <small>User Agent: ${deviceInfo.userAgent}</small>
+                </div>
+            `;
+        }
+
+        let currentStream = null;
+
+        // Test camera access with iOS constraints
+        async function testCamera() {
+            const statusDiv = document.getElementById('camera-status');
+            const resultsDiv = document.getElementById('test-results');
+            const video = document.getElementById('test-video');
+            
+            statusDiv.innerHTML = '<div class="info">Testing camera access...</div>';
+            
+            try {
+                const deviceInfo = detectDevice();
+                
+                if (deviceInfo.isIOS) {
+                    statusDiv.innerHTML += '<div class="info">📱 iOS device detected - using enhanced constraints</div>';
+                    
+                    // iOS constraint fallbacks (same as in useCameraAccess.ts)
+                    const iosConstraints = [
+                        {
+                            video: {
+                                facingMode: { exact: 'environment' },
+                                width: { min: 640, ideal: 1280, max: 1920 },
+                                height: { min: 480, ideal: 720, max: 1080 },
+                                frameRate: { ideal: 30, max: 60 }
+                            }
+                        },
+                        {
+                            video: {
+                                facingMode: 'environment',
+                                width: { ideal: 1280 },
+                                height: { ideal: 720 }
+                            }
+                        },
+                        {
+                            video: {
+                                facingMode: 'environment'
+                            }
+                        },
+                        {
+                            video: {
+                                facingMode: { ideal: 'environment' }
+                            }
+                        },
+                        {
+                            video: true
+                        }
+                    ];
+
+                    let stream = null;
+                    let successfulConstraint = null;
+                    
+                    for (let i = 0; i < iosConstraints.length; i++) {
+                        try {
+                            statusDiv.innerHTML += `<div class="info">📱 Trying iOS constraint ${i + 1}/${iosConstraints.length}...</div>`;
+                            stream = await navigator.mediaDevices.getUserMedia(iosConstraints[i]);
+                            successfulConstraint = i + 1;
+                            statusDiv.innerHTML += `<div class="success">✅ iOS constraint ${i + 1} successful!</div>`;
+                            break;
+                        } catch (err) {
+                            statusDiv.innerHTML += `<div class="error">❌ iOS constraint ${i + 1} failed: ${err.message}</div>`;
+                        }
+                    }
+
+                    if (stream) {
+                        currentStream = stream;
+                        video.srcObject = stream;
+                        
+                        const track = stream.getVideoTracks()[0];
+                        const settings = track.getSettings();
+                        
+                        resultsDiv.innerHTML = `
+                            <div class="success">
+                                <h3>✅ Camera Access Successful!</h3>
+                                <strong>Successful Constraint:</strong> Level ${successfulConstraint}<br>
+                                <strong>Camera Settings:</strong><br>
+                                - Width: ${settings.width}px<br>
+                                - Height: ${settings.height}px<br>
+                                - Frame Rate: ${settings.frameRate}fps<br>
+                                - Facing Mode: ${settings.facingMode || 'Not specified'}<br>
+                                - Device ID: ${settings.deviceId || 'Not available'}
+                            </div>
+                        `;
+                    } else {
+                        resultsDiv.innerHTML = '<div class="error"><h3>❌ All iOS constraints failed</h3></div>';
+                    }
+                } else {
+                    // Non-iOS device
+                    statusDiv.innerHTML += '<div class="info">🖥️ Non-iOS device - using standard constraints</div>';
+                    
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: 'environment',
+                            width: { ideal: 1920 },
+                            height: { ideal: 1080 }
+                        }
+                    });
+                    
+                    currentStream = stream;
+                    video.srcObject = stream;
+                    
+                    const track = stream.getVideoTracks()[0];
+                    const settings = track.getSettings();
+                    
+                    resultsDiv.innerHTML = `
+                        <div class="success">
+                            <h3>✅ Camera Access Successful!</h3>
+                            <strong>Camera Settings:</strong><br>
+                            - Width: ${settings.width}px<br>
+                            - Height: ${settings.height}px<br>
+                            - Frame Rate: ${settings.frameRate}fps<br>
+                            - Facing Mode: ${settings.facingMode || 'Not specified'}
+                        </div>
+                    `;
+                }
+                
+            } catch (error) {
+                statusDiv.innerHTML += `<div class="error">❌ Camera access failed: ${error.message}</div>`;
+                resultsDiv.innerHTML = `<div class="error"><h3>❌ Camera Test Failed</h3><p>${error.message}</p></div>`;
+            }
+        }
+
+        function stopCamera() {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+                currentStream = null;
+                document.getElementById('test-video').srcObject = null;
+                document.getElementById('camera-status').innerHTML = '<div class="info">Camera stopped</div>';
+            }
+        }
+
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            displayDeviceInfo();
+        });
+    </script>
+</body>
+</html>
