@@ -35,6 +35,10 @@ export class ScreenController {
         { upsert: true, new: true }
       );
 
+      // Notify admin panels about screen registration
+      const socketService = getSocketService();
+      socketService.getIO().emit('screen:registered', { screenId });
+
       res.status(200).json(screen);
     } catch (error) {
       console.error('Error registering screen:', error);

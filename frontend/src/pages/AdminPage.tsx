@@ -17,6 +17,15 @@ function AdminPage() {
   const [cameraGroups, setCameraGroups] = useState<Record<string, string>>({});
   const [availableGroups] = useState(['Group 1', 'Group 2', 'Group 3', 'Group 4', 'Group 5']);
 
+  // Helper function to filter out built-in displays
+  const filterBuiltInScreens = (screens: Screen[]) => {
+    return screens.filter(screen => {
+      const isBuiltIn = screen.label?.toLowerCase().includes('built-in') || 
+                       screen.label?.toLowerCase().includes('internal');
+      return !isBuiltIn;
+    });
+  };
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -51,12 +60,12 @@ function AdminPage() {
     // Listen for screen registration/disconnection
     socket.on("screen:registered", () => {
       console.log("📺 Screen registered - refreshing admin panel");
-      loadData();
+      setTimeout(() => loadData(), 500); // Small delay to ensure socket registration is complete
     });
 
     socket.on("screen:disconnected", () => {
       console.log("📺 Screen disconnected - refreshing admin panel");
-      loadData();
+      setTimeout(() => loadData(), 500);
     });
 
     // Listen for mapping updates
@@ -249,9 +258,7 @@ function AdminPage() {
   };
 
   const handleDeleteOfflineScreens = async () => {
-    const offlineScreens = screens.filter(
-      (screen) => !(screen as any).isConnected,
-    );
+    const offlineScreens = filterBuiltInScreens(screens).filter((screen) => !(screen as any).isConnected);
 
     if (offlineScreens.length === 0) {
       alert("No offline screens to delete.");
@@ -463,7 +470,7 @@ function AdminPage() {
         <section className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-2xl font-bold text-white">
-              All Screens ({screens.length})
+              All Screens ({filterBuiltInScreens(screens).length})
             </h2>
             <div className="flex space-x-3">
               <button
@@ -484,17 +491,13 @@ function AdminPage() {
               >
                 🔄 Hard Refresh
               </button>
-              {screens.filter((screen) => !(screen as any).isConnected).length >
-                0 && (
+              {filterBuiltInScreens(screens).filter((screen) => !(screen as any).isConnected).length > 0 && (
                 <button
                   onClick={handleDeleteOfflineScreens}
                   className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition-colors"
                 >
                   🗑️ Delete Offline (
-                  {
-                    screens.filter((screen) => !(screen as any).isConnected)
-                      .length
-                  }
+                  {filterBuiltInScreens(screens).filter((screen) => !(screen as any).isConnected).length}
                   )
                 </button>
               )}
@@ -509,7 +512,7 @@ function AdminPage() {
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {screens.map((screen) => (
+            {filterBuiltInScreens(screens).map((screen) => (
               <div
                 key={screen.screenId}
                 className={`bg-gray-800 border-2 rounded-lg p-4 ${
@@ -651,7 +654,7 @@ function AdminPage() {
                 </div>
               </div>
             ))}
-            {screens.length === 0 && (
+            {filterBuiltInScreens(screens).length === 0 && (
               <div className="col-span-full bg-gray-800 border-2 border-gray-700 rounded-lg p-8 text-center">
                 <p className="text-gray-400">
                   No screens connected. Open /screens on different displays to
@@ -707,7 +710,7 @@ function AdminPage() {
                 cameras.
               </p>
             </div>
-          ) : screens.length === 0 ? (
+          ) : filterBuiltInScreens(screens).length === 0 ? (
             <div className="bg-gray-800 border-2 border-gray-700 rounded-lg p-8 text-center">
               <p className="text-gray-400">
                 No screens available for mapping. Open /screens on displays
@@ -801,7 +804,7 @@ function AdminPage() {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {screens
+                      {filterBuiltInScreens(screens)
                         .filter((screen) => !screen.isCollageScreen) // Exclude collage screens from mapping
                         .map((screen) => (
                           <label
@@ -839,7 +842,7 @@ function AdminPage() {
         </section>
 
         {/* Save Button */}
-        {allCameras.length > 0 && screens.length > 0 && (
+        {allCameras.length > 0 && filterBuiltInScreens(screens).length > 0 && (
           <div className="flex justify-center">
             <button
               onClick={handleSaveMappings}

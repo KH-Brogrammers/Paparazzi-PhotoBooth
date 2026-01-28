@@ -43,19 +43,27 @@ export async function detectScreens(): Promise<DetectedScreen[]> {
     if ('getScreenDetails' in window) {
       const screenDetails = await window.getScreenDetails!();
       
-      return screenDetails.screens.map((screen, index) => ({
-        screenId: `screen-${screen.left}-${screen.top}-${screen.width}-${screen.height}`,
-        label: screen.label || `Screen ${index + 1}`,
-        position: {
-          left: screen.left,
-          top: screen.top,
-        },
-        resolution: {
-          width: screen.width,
-          height: screen.height,
-        },
-        isPrimary: screen.isPrimary,
-      }));
+      return screenDetails.screens
+        .filter(screen => {
+          // Filter out built-in displays and internal screens
+          const isBuiltIn = screen.label?.toLowerCase().includes('built-in') || 
+                           screen.label?.toLowerCase().includes('internal') ||
+                           screen.isInternal;
+          return !isBuiltIn;
+        })
+        .map((screen, index) => ({
+          screenId: `screen-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          label: screen.label || `Screen ${index + 1}`,
+          position: {
+            left: screen.left,
+            top: screen.top,
+          },
+          resolution: {
+            width: screen.width,
+            height: screen.height,
+          },
+          isPrimary: screen.isPrimary,
+        }));
     } else {
       // Fallback: Generate unique ID
       console.warn('Window Placement API not available, using fallback');
@@ -68,12 +76,12 @@ export async function detectScreens(): Promise<DetectedScreen[]> {
 }
 
 export function generateScreenId(): string {
-  // Generate unique screen ID for each tab/window instance
-  return `screen-${generateId()}-${Date.now()}`;
+  // Generate unique ID for each tab/window
+  return `screen-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
 export function getCurrentScreenInfo(): DetectedScreen {
-  // Fallback screen info with unique ID for each tab
+  // Generate unique screen for each tab
   const screenId = generateScreenId();
   const screenNumber = screenId.split('-')[1].slice(-3); // Last 3 digits for display
   
@@ -81,13 +89,13 @@ export function getCurrentScreenInfo(): DetectedScreen {
     screenId,
     label: `Screen ${screenNumber}`,
     position: {
-      left: window.screenX,
-      top: window.screenY,
+      left: window.screenX || 0,
+      top: window.screenY || 0,
     },
     resolution: {
       width: window.screen.width,
       height: window.screen.height,
     },
-    isPrimary: false, // Set to false by default
+    isPrimary: false,
   };
 }
