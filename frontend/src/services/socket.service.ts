@@ -17,6 +17,7 @@ class SocketClient {
         reconnectionDelay: 2000,
         reconnectionDelayMax: 10000,
         reconnectionAttempts: 5,
+        upgrade: false, // Disable transport upgrades for dev tunnels
       });
 
       this.socket.on('connect', () => {
