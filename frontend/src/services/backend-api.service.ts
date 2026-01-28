@@ -1,4 +1,4 @@
-const API_BASE_URL = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:8800') + '/api';
+const API_BASE_URL = (import.meta.env.VITE_API_BACKEND_URL || 'http://localhost:8800') + '/api';
 
 console.log('🔗 Backend API URL:', API_BASE_URL);
 
