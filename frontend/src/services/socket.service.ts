@@ -11,6 +11,9 @@ class SocketClient {
     if (!this.socket) {
       this.socket = io(SOCKET_URL, {
         transports: ['websocket', 'polling'],
+        upgrade: false,
+        forceNew: true,
+        secure: false,
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
