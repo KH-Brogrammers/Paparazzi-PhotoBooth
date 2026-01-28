@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => {
       hmr: {
         host: env.VITE_API_BACKEND_URL 
                 ? env.VITE_API_BACKEND_URL.replace(/^https?:\/\//, '') 
-                : '13.233.215.148',
+                : 'https://8d2mn5x3-8800.inc1.devtunnels.ms',
         
         // Use 'ws' for IP/HTTP or 'wss' for Domain/HTTPS
         protocol: env.VITE_API_BACKEND_URL?.startsWith('https') ? 'wss' : 'ws',
