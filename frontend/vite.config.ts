@@ -14,15 +14,9 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
       allowedHosts: ['magictap.app'],
       hmr: {
-        host: env.VITE_API_BACKEND_URL 
-                ? env.VITE_API_BACKEND_URL.replace(/^https?:\/\//, '') 
-                : '13.233.215.148',
-        
-        // Use 'ws' for IP/HTTP or 'wss' for Domain/HTTPS
-        protocol: env.VITE_API_BACKEND_URL?.startsWith('https') ? 'wss' : 'ws',
-        
-        // If hitting through Nginx (port 80), the browser thinks the port is 80
-        clientPort: env.VITE_API_BACKEND_URL?.startsWith('https') ? 443 : 80,
+        host: 'magictap.app',
+        protocol: 'wss',
+        clientPort: 443,
       },
     },
   };
