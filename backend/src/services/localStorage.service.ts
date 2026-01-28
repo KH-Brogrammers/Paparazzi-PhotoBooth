@@ -1,6 +1,6 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import { config } from '../config/env.config';
+import * as fs from "fs";
+import * as path from "path";
+import { config } from "../config/env.config";
 
 class LocalStorageService {
   private basePath: string;
@@ -8,7 +8,9 @@ class LocalStorageService {
   constructor() {
     this.basePath = config.imageStoragePath;
     console.log(`🔧 Storage path configured: ${this.basePath}`);
-    console.log(`🔧 Environment IMAGE_STORAGE_PATH: ${process.env.IMAGE_STORAGE_PATH}`);
+    console.log(
+      `🔧 Environment IMAGE_STORAGE_PATH: ${process.env.IMAGE_STORAGE_PATH}`,
+    );
     this.ensureBaseDirectoryExists();
   }
 
@@ -20,10 +22,10 @@ class LocalStorageService {
       } else {
         console.log(`📁 Base storage directory exists: ${this.basePath}`);
       }
-      
+
       // Test write permissions
-      const testFile = path.join(this.basePath, '.write-test');
-      fs.writeFileSync(testFile, 'test');
+      const testFile = path.join(this.basePath, ".write-test");
+      fs.writeFileSync(testFile, "test");
       fs.unlinkSync(testFile);
       console.log(`✅ Write permissions confirmed for: ${this.basePath}`);
     } catch (error) {
@@ -44,7 +46,7 @@ class LocalStorageService {
   async saveImage(
     base64Data: string,
     cameraId: string,
-    timestamp: number
+    timestamp: number,
   ): Promise<{ localPath: string; relativePath: string }> {
     try {
       // Ensure camera directory exists
@@ -55,14 +57,14 @@ class LocalStorageService {
       const filePath = path.join(cameraPath, filename);
 
       // Remove data:image/xxx;base64, prefix if present
-      const base64Image = base64Data.replace(/^data:image\/\w+;base64,/, '');
+      const base64Image = base64Data.replace(/^data:image\/\w+;base64,/, "");
 
       // Convert base64 to buffer and save
-      const buffer = Buffer.from(base64Image, 'base64');
+      const buffer = Buffer.from(base64Image, "base64");
       fs.writeFileSync(filePath, buffer);
 
       const relativePath = `${cameraId}/${filename}`;
-      
+
       console.log(`💾 Image saved locally: ${relativePath}`);
 
       return {
@@ -70,7 +72,7 @@ class LocalStorageService {
         relativePath,
       };
     } catch (error) {
-      console.error('Error saving image to local storage:', error);
+      console.error("Error saving image to local storage:", error);
       throw error;
     }
   }
@@ -89,9 +91,9 @@ class LocalStorageService {
   }
 
   generateFolderName(timestamp: number): string {
-    // Create folder structure: HH:MM:SS_DD-MM-YYYY
+    // Create folder structure: HH-MM-SS_DD-MM-YYYY (using hyphens instead of colons for Windows compatibility)
     const date = new Date(timestamp);
-    const timeFolder = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}_${date.getDate().toString().padStart(2, '0')}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getFullYear()}`;
+    const timeFolder = `${date.getHours().toString().padStart(2, "0")}-${date.getMinutes().toString().padStart(2, "0")}-${date.getSeconds().toString().padStart(2, "0")}_${date.getDate().toString().padStart(2, "0")}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getFullYear()}`;
     return timeFolder;
   }
 
@@ -101,16 +103,16 @@ class LocalStorageService {
     screenNumber: number,
     timestamp: number,
     screenOrientation?: string,
-    screenResolution?: { width: number; height: number }
+    screenResolution?: { width: number; height: number },
   ): Promise<{ localPath: string; relativePath: string }> {
     try {
       console.log(`💾 Saving image to storage path: ${this.basePath}`);
       console.log(`💾 Folder name: ${folderName}`);
-      
+
       // Create folder structure: folderName/screen_X_photo_orientation.jpg
       const folderPath = path.join(this.basePath, folderName);
       console.log(`💾 Full folder path: ${folderPath}`);
-      
+
       if (!fs.existsSync(folderPath)) {
         fs.mkdirSync(folderPath, { recursive: true });
         console.log(`📁 Created folder: ${folderPath}`);
@@ -119,23 +121,25 @@ class LocalStorageService {
       }
 
       // Generate filename: screen_1_photo_landscape.jpg, screen_2_photo_portrait.jpg, etc.
-      const orientationSuffix = screenOrientation ? `_${screenOrientation}` : '';
+      const orientationSuffix = screenOrientation
+        ? `_${screenOrientation}`
+        : "";
       const filename = `screen_${screenNumber}_photo${orientationSuffix}.jpg`;
       const filePath = path.join(folderPath, filename);
 
       // Remove data:image/xxx;base64, prefix if present
-      const base64Image = base64Data.replace(/^data:image\/\w+;base64,/, '');
-      let buffer = Buffer.from(base64Image, 'base64');
+      const base64Image = base64Data.replace(/^data:image\/\w+;base64,/, "");
+      let buffer = Buffer.from(base64Image, "base64");
 
-      const sharp = require('sharp');
-      
+      const sharp = require("sharp");
+
       // Resize image to match screen resolution if provided
       if (screenResolution?.width && screenResolution?.height) {
         buffer = await sharp(buffer)
           .resize(screenResolution.width, screenResolution.height, {
-            fit: 'contain',
-            position: 'center',
-            background: { r: 255, g: 255, b: 255, alpha: 1 }
+            fit: "contain",
+            position: "center",
+            background: { r: 255, g: 255, b: 255, alpha: 1 },
           })
           .jpeg({ quality: 90 })
           .toBuffer();
@@ -147,7 +151,7 @@ class LocalStorageService {
       fs.writeFileSync(filePath, buffer);
 
       const relativePath = `${folderName}/${filename}`;
-      
+
       console.log(`💾 Image saved locally: ${relativePath}`);
 
       return {
@@ -155,7 +159,7 @@ class LocalStorageService {
         relativePath,
       };
     } catch (error) {
-      console.error('Error saving image to local storage:', error);
+      console.error("Error saving image to local storage:", error);
       throw error;
     }
   }
@@ -166,41 +170,43 @@ class LocalStorageService {
     screenNumber: number,
     timestamp: number,
     screenOrientation?: string,
-    screenResolution?: { width: number; height: number }
+    screenResolution?: { width: number; height: number },
   ): Promise<{ s3Url: string; s3Key: string } | null> {
     try {
       // Import S3 service
-      const { s3Service } = await import('./s3.service');
+      const { s3Service } = await import("./s3.service");
 
       if (!s3Service.isConfigured()) {
-        console.warn('⚠️ S3 not configured, skipping upload');
+        console.warn("⚠️ S3 not configured, skipping upload");
         return null;
       }
 
-      const orientationSuffix = screenOrientation ? `_${screenOrientation}` : '';
+      const orientationSuffix = screenOrientation
+        ? `_${screenOrientation}`
+        : "";
       const filename = `screen_${screenNumber}_photo${orientationSuffix}.jpg`;
       const key = `photos/${folderName}/${filename}`;
-      
+
       // Remove data:image/xxx;base64, prefix if present
-      const base64Image = base64Data.replace(/^data:image\/\w+;base64,/, '');
-      let buffer = Buffer.from(base64Image, 'base64');
+      const base64Image = base64Data.replace(/^data:image\/\w+;base64,/, "");
+      let buffer = Buffer.from(base64Image, "base64");
 
       // Resize image to match screen resolution if provided
       if (screenResolution?.width && screenResolution?.height) {
-        const sharp = require('sharp');
-        
+        const sharp = require("sharp");
+
         buffer = await sharp(buffer)
           .resize(screenResolution.width, screenResolution.height, {
-            fit: 'contain',
-            position: 'center',
-            background: { r: 255, g: 255, b: 255, alpha: 1 }
+            fit: "contain",
+            position: "center",
+            background: { r: 255, g: 255, b: 255, alpha: 1 },
           })
           .jpeg({ quality: 90 })
           .toBuffer();
       }
 
       // Upload to S3
-      const s3Url = await s3Service.uploadBuffer(buffer, key, 'image/jpeg');
+      const s3Url = await s3Service.uploadBuffer(buffer, key, "image/jpeg");
 
       console.log(`☁️ Image uploaded to S3: ${key}`);
 
@@ -209,7 +215,7 @@ class LocalStorageService {
         s3Key: key,
       };
     } catch (error) {
-      console.error('Error uploading to S3:', error);
+      console.error("Error uploading to S3:", error);
       return null;
     }
   }
