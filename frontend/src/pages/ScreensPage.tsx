@@ -94,32 +94,27 @@ function ScreensPage() {
 
       console.log("✅ Screen registered with backend");
 
+      // Fetch screen details to check if collage screen
+      const screensDetail = await screenApi.getAll();
+      const thisScreen = screensDetail.find(
+        (s: any) => s.screenId === screenInfo.screenId,
+      );
+      if (thisScreen) {
+        const isCollage = thisScreen?.isCollageScreen || false;
+        setIsCollageScreen(isCollage);
+        console.log(
+          `🖼️ Screen ${screenInfo.screenId} is collage screen: ${isCollage}`,
+        );
+      }
+
+      setIsRegistered(true);
+
       // Connect to socket
       const socket = socketClient.connect();
       socketRef.current = socket;
 
-      // Register with socket server AFTER backend registration
+      // Register with socket server
       socket.emit("register:screen", screenInfo.screenId);
-
-      // Wait for socket registration confirmation
-      socket.on('registered', async () => {
-        console.log("✅ Socket registration confirmed");
-        
-        // Now fetch screen details to check if collage screen
-        const screensDetail = await screenApi.getAll();
-        const thisScreen = screensDetail.find(
-          (s: any) => s.screenId === screenInfo.screenId,
-        );
-        if (thisScreen) {
-          const isCollage = thisScreen?.isCollageScreen || false;
-          setIsCollageScreen(isCollage);
-          console.log(
-            `🖼️ Screen ${screenInfo.screenId} is collage screen: ${isCollage}`,
-          );
-        }
-        
-        setIsRegistered(true);
-      });
 
       // Listen for collage updates
       socket.on(
