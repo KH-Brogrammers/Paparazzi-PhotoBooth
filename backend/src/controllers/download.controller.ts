@@ -23,7 +23,7 @@ export const downloadPhotosZip = async (req: Request, res: Response) => {
         .map(dirent => dirent.name)
         .sort((a, b) => b.localeCompare(a)); // Sort newest first
       
-      console.log('📁 Available folders:', folders);
+      // console.log('📁 Available folders:', folders);
       
       // Look for folder with collages
       for (const folder of folders) {
