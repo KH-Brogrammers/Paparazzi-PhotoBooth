@@ -70,24 +70,6 @@ const CameraCard = forwardRef<CameraCardRef, CameraCardProps>(
                 <p className="text-gray-300 text-sm mb-2">
                   ID: {camera.deviceId.substring(0, 12)}...
                 </p>
-                {connectedScreens.length > 0 && (
-                  <div>
-                    <p className="text-gray-400 text-xs mb-1">Connected Screens:</p>
-                    <div className="flex flex-wrap gap-1">
-                      {connectedScreens.map((screen) => (
-                        <span 
-                          key={screen.screenId}
-                          className="bg-green-600 text-white text-xs px-2 py-1 rounded"
-                        >
-                          #{screen.serialNumber} {screen.label}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {connectedScreens.length === 0 && (
-                  <p className="text-red-400 text-xs">No screens mapped</p>
-                )}
               </div>
             </div>
           </div>
