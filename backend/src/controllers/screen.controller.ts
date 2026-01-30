@@ -21,25 +21,43 @@ export class ScreenController {
         return;
       }
 
-      const screen = await Screen.findOneAndUpdate(
-        { screenId },
-        {
-          screenId,
-          label,
-          position,
-          resolution,
-          isPrimary: isPrimary || false,
-          isAvailable: true,
-          lastSeen: new Date(),
-        },
-        { upsert: true, new: true }
-      );
+      // Check if screen already exists
+      const existingScreen = await Screen.findOne({ screenId });
+      
+      if (existingScreen) {
+        // Update existing screen's lastSeen and availability
+        existingScreen.isAvailable = true;
+        existingScreen.lastSeen = new Date();
+        await existingScreen.save();
+        
+        console.log(`📺 Screen reconnected: ${screenId}`);
+        
+        // Notify admin panels about screen reconnection
+        const socketService = getSocketService();
+        socketService.getIO().emit('screen:reconnected', { screenId });
+        
+        res.status(200).json(existingScreen);
+        return;
+      }
 
-      // Notify admin panels about screen registration
+      // Create new screen if it doesn't exist
+      const screen = await Screen.create({
+        screenId,
+        label,
+        position,
+        resolution,
+        isPrimary: isPrimary || false,
+        isAvailable: true,
+        lastSeen: new Date(),
+      });
+
+      console.log(`📺 New screen registered: ${screenId}`);
+
+      // Notify admin panels about new screen registration
       const socketService = getSocketService();
       socketService.getIO().emit('screen:registered', { screenId });
 
-      res.status(200).json(screen);
+      res.status(201).json(screen);
     } catch (error) {
       console.error('Error registering screen:', error);
       res.status(500).json({

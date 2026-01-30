@@ -25,7 +25,7 @@ export class SocketService {
       console.log(`🔌 Client connected: ${socket.id}`);
 
       // Screen registration
-      socket.on('register:screen', (screenId: string) => {
+      socket.on('register:screen', async (screenId: string) => {
         this.screenSockets.set(screenId, socket.id);
         socket.join(`screen:${screenId}`);
         console.log(`📺 Screen registered: ${screenId} (${socket.id})`);
@@ -142,7 +142,7 @@ export class SocketService {
       });
 
       // Handle disconnection
-      socket.on('disconnect', () => {
+      socket.on('disconnect', async () => {
         console.log(`🔌 Client disconnected: ${socket.id}`);
         
         // Handle camera disconnection
@@ -173,11 +173,22 @@ export class SocketService {
           }
         }
         
-        // Remove screen from map and notify admin panels
+        // Handle screen disconnection - remove from database after delay
         for (const [screenId, socketId] of this.screenSockets.entries()) {
           if (socketId === socket.id) {
             this.screenSockets.delete(screenId);
-            console.log(`📺 Screen unregistered: ${screenId}`);
+            console.log(`📺 Screen disconnected: ${screenId}`);
+            
+            // Remove screen from database after 5 seconds to prevent duplicates
+            setTimeout(async () => {
+              try {
+                const { Screen } = await import('../models/screen.model');
+                await Screen.findOneAndDelete({ screenId });
+                console.log(`📺 Screen removed from database: ${screenId}`);
+              } catch (error) {
+                console.error('Error removing screen from database:', error);
+              }
+            }, 5000);
             
             // Notify admin panels about disconnected screen
             this.io.emit('screen:disconnected', { screenId });
