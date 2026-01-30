@@ -308,6 +308,8 @@ export class ImageController {
                 process.env.BACKEND_URL || "http://localhost:8800";
               const collageUrl = `${backendUrl}/api/images/collage/${encodeURIComponent(timeFolder)}?orientation=${orientation}`;
 
+              console.log(`🖼️ Generated collage URL: ${collageUrl}`);
+
               // Emit collage to this screen
               socketService.emitImageToScreens([screen.screenId], {
                 imageId: `collage_${timestampNum}`,
@@ -462,8 +464,20 @@ export class ImageController {
       const decodedFolderPath = decodeURIComponent(folderPath);
       const targetOrientation = orientation as "landscape" | "portrait";
 
-      // Check if collage exists
-      if (!collageService.collageExists(decodedFolderPath, targetOrientation)) {
+      console.log(`🖼️ Serving collage for folder: ${decodedFolderPath}, orientation: ${targetOrientation}`);
+
+      // Get the collage path first
+      const collagePath = collageService.getCollagePath(
+        decodedFolderPath,
+        targetOrientation,
+      );
+      
+      console.log(`🖼️ Collage path: ${collagePath}`);
+      console.log(`🖼️ Collage exists: ${fs.existsSync(collagePath)}`);
+
+      // Check if collage exists directly
+      if (!fs.existsSync(collagePath)) {
+        console.log(`🖼️ Collage not found, trying to generate...`);
         // Try to generate collage if it doesn't exist
         try {
           await collageService.generateCollage(decodedFolderPath);
@@ -474,12 +488,10 @@ export class ImageController {
           });
           return;
         }
+      } else {
+        console.log(`🖼️ Using existing collage: ${collagePath}`);
       }
 
-      const collagePath = collageService.getCollagePath(
-        decodedFolderPath,
-        targetOrientation,
-      );
       res.sendFile(collagePath);
     } catch (error) {
       console.error("Error serving collage:", error);
