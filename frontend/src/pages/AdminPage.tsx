@@ -764,6 +764,9 @@ function AdminPage() {
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center space-x-4">
                         <h3 className="text-white font-semibold text-xl">
+                          <span className="bg-blue-600 text-white text-xs px-2 py-1 rounded font-bold mr-2">
+                            #{index + 1}
+                          </span>
                           📷 {camera.label}
                         </h3>
                         <div className="flex items-center space-x-2">
@@ -834,7 +837,7 @@ function AdminPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                       {filterBuiltInScreens(screens)
                         .filter((screen) => !screen.isCollageScreen) // Exclude collage screens from mapping
-                        .map((screen) => (
+                        .map((screen, screenIndex) => (
                           <label
                             key={screen.screenId}
                             className="flex items-center space-x-3 bg-gray-700/50 p-4 rounded-lg cursor-pointer hover:bg-gray-700 transition-colors"
@@ -855,9 +858,12 @@ function AdminPage() {
                               className="w-5 h-5 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
                             />
                             <span className="text-white">
+                              <span className="bg-blue-600 text-white text-xs px-1 py-0.5 rounded font-bold mr-2">
+                                #{screenIndex + 1}
+                              </span>
                               {screen.label}
                               <br />
-                              <span className="text-xs text-gray-400">
+                              <span className="text-xs text-gray-400 ml-8">
                                 ID: {screen.screenId.substring(screen.screenId.length - 6)}
                               </span>
                             </span>
