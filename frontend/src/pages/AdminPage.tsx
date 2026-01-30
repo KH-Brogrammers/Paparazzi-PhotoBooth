@@ -550,7 +550,7 @@ function AdminPage() {
                   </div>
                 </div>
                 <p className="text-gray-400 text-sm mb-1">
-                  ID: {screen.screenId.substring(0, 20)}...
+                  ID: {screen.screenId.substring(screen.screenId.length - 6)}
                 </p>
                 {screen.resolution && (
                   <p className="text-gray-400 text-sm mb-2">
@@ -826,7 +826,13 @@ function AdminPage() {
                               }
                               className="w-5 h-5 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
                             />
-                            <span className="text-white">{screen.label}</span>
+                            <span className="text-white">
+                              {screen.label}
+                              <br />
+                              <span className="text-xs text-gray-400">
+                                ID: {screen.screenId.substring(screen.screenId.length - 6)}
+                              </span>
+                            </span>
                           </label>
                         ))}
                     </div>
