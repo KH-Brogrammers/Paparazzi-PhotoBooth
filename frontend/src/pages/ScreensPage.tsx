@@ -319,7 +319,7 @@ function ScreensPage() {
           </p>
           {mappedCameras.length > 0 && (
             <p>
-              <strong>Camera:</strong> {mappedCameras.map(cam => cam.cameraId).join(", ")}
+              <strong>Camera:</strong> {mappedCameras.map((cam, index) => `#${index + 1} ${cam.cameraId}`).join(", ")}
             </p>
           )}
           <p className={`${currentImage ? "text-green-400" : "text-gray-400"}`}>
