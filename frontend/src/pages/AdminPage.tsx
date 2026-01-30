@@ -296,11 +296,22 @@ function AdminPage() {
       )
     ) {
       try {
+        let deletedCount = 0;
         for (const screen of offlineScreens) {
-          await screenApi.delete(screen.screenId);
+          try {
+            await screenApi.delete(screen.screenId);
+            deletedCount++;
+          } catch (error: any) {
+            if (error?.status === 404 || error?.message?.includes('404')) {
+              console.log(`Screen ${screen.screenId} already deleted`);
+              deletedCount++; // Count as deleted since it's already gone
+            } else {
+              console.error(`Error deleting screen ${screen.screenId}:`, error);
+            }
+          }
         }
         await loadData();
-        alert(`${offlineScreens.length} offline screens deleted successfully!`);
+        alert(`${deletedCount} offline screens processed successfully!`);
       } catch (error) {
         console.error("Error deleting offline screens:", error);
         alert("Failed to delete offline screens");

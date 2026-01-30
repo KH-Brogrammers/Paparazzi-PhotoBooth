@@ -31,6 +31,9 @@ export const screenApi = {
     const response = await fetch(`${API_BASE_URL}/screens/${screenId}`, {
       method: 'DELETE',
     });
+    if (!response.ok) {
+      throw { status: response.status, message: `HTTP ${response.status}` };
+    }
     return response.json();
   },
 
