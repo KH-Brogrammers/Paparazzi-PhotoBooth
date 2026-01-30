@@ -9,6 +9,7 @@ function ScreensPage() {
   const [screenId, setScreenId] = useState<string>("");
   const [screenLabel, setScreenLabel] = useState<string>("");
   const [screenSerialNumber, setScreenSerialNumber] = useState<number>(0);
+  const [mappedCameras, setMappedCameras] = useState<Array<{cameraId: string, cameraLabel: string}>>([]);
   const [currentImage, setCurrentImage] = useState<ImageData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isRegistered, setIsRegistered] = useState(false);
@@ -103,8 +104,12 @@ function ScreensPage() {
       if (thisScreen) {
         const isCollage = thisScreen?.isCollageScreen || false;
         setIsCollageScreen(isCollage);
+        setMappedCameras(thisScreen.mappedCameras || []);
         console.log(
           `🖼️ Screen ${screenInfo.screenId} is collage screen: ${isCollage}`,
+        );
+        console.log(
+          `📷 Mapped cameras:`, thisScreen.mappedCameras || []
         );
       }
 
@@ -150,8 +155,20 @@ function ScreensPage() {
       );
 
       // Listen for mapping updates
-      socket.on("mappings:updated", () => {
-        console.log("🔄 Mappings updated");
+      socket.on("mappings:updated", async () => {
+        console.log("🔄 Mappings updated - refreshing camera info");
+        try {
+          const screensDetail = await screenApi.getAll();
+          const thisScreen = screensDetail.find(
+            (s: any) => s.screenId === screenInfo.screenId,
+          );
+          if (thisScreen) {
+            setMappedCameras(thisScreen.mappedCameras || []);
+            console.log("📷 Updated mapped cameras:", thisScreen.mappedCameras || []);
+          }
+        } catch (error) {
+          console.error("Error refreshing camera info:", error);
+        }
       });
 
       // Listen for clear screens event
@@ -300,6 +317,11 @@ function ScreensPage() {
             <strong>Type:</strong>{" "}
             {isCollageScreen ? "Collage Screen" : "Regular Screen"}
           </p>
+          {mappedCameras.length > 0 && (
+            <p>
+              <strong>Camera:</strong> {mappedCameras.map(cam => cam.cameraId).join(", ")}
+            </p>
+          )}
           <p className={`${currentImage ? "text-green-400" : "text-gray-400"}`}>
             {currentImage ? "● Active" : "○ Waiting"}
           </p>

@@ -77,11 +77,25 @@ export class ScreenController {
       const socketService = getSocketService();
       const connectedScreenIds = socketService.getConnectedScreens();
       
-      // Mark which screens are currently connected
-      const screensWithStatus = allScreens.map(screen => ({
-        ...screen.toObject(),
-        isConnected: connectedScreenIds.includes(screen.screenId)
-      }));
+      // Get all camera mappings
+      const mappings = await CameraMapping.find();
+      
+      // Mark which screens are currently connected and add camera info
+      const screensWithStatus = allScreens.map(screen => {
+        // Find cameras mapped to this screen
+        const mappedCameras = mappings.filter(mapping => 
+          mapping.screenIds.includes(screen.screenId)
+        );
+        
+        return {
+          ...screen.toObject(),
+          isConnected: connectedScreenIds.includes(screen.screenId),
+          mappedCameras: mappedCameras.map(mapping => ({
+            cameraId: mapping.cameraId,
+            cameraLabel: mapping.cameraLabel
+          }))
+        };
+      });
       
       res.status(200).json(screensWithStatus);
     } catch (error) {
