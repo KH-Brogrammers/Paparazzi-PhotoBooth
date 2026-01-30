@@ -8,6 +8,7 @@ import LogoPlaceholder from "../components/LogoPlaceholder";
 function ScreensPage() {
   const [screenId, setScreenId] = useState<string>("");
   const [screenLabel, setScreenLabel] = useState<string>("");
+  const [screenSerialNumber, setScreenSerialNumber] = useState<number>(0);
   const [currentImage, setCurrentImage] = useState<ImageData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isRegistered, setIsRegistered] = useState(false);
@@ -94,7 +95,7 @@ function ScreensPage() {
 
       console.log("✅ Screen registered with backend");
 
-      // Fetch screen details to check if collage screen
+      // Fetch screen details to check if collage screen and get serial number
       const screensDetail = await screenApi.getAll();
       const thisScreen = screensDetail.find(
         (s: any) => s.screenId === screenInfo.screenId,
@@ -106,6 +107,19 @@ function ScreensPage() {
           `🖼️ Screen ${screenInfo.screenId} is collage screen: ${isCollage}`,
         );
       }
+
+      // Calculate serial number based on position in filtered screens list
+      const filterBuiltInScreens = (screens: any[]) => {
+        return screens.filter(screen => 
+          !screen.label?.toLowerCase().includes('built-in') && 
+          !screen.label?.toLowerCase().includes('internal')
+        );
+      };
+      
+      const filteredScreens = filterBuiltInScreens(screensDetail);
+      const serialNumber = filteredScreens.findIndex((s: any) => s.screenId === screenInfo.screenId) + 1;
+      setScreenSerialNumber(serialNumber);
+      console.log(`📺 Screen serial number: #${serialNumber}`);
 
       setIsRegistered(true);
 
@@ -273,6 +287,9 @@ function ScreensPage() {
       {/* Screen Info Overlay - Only show when toggled */}
       {showDetails && (
         <div className="absolute top-4 right-4 bg-black/70 text-white px-4 py-2 rounded-lg text-sm z-50">
+          <p>
+            <strong>Serial No:</strong> #{screenSerialNumber}
+          </p>
           <p>
             <strong>Screen ID:</strong> {screenId}
           </p>
