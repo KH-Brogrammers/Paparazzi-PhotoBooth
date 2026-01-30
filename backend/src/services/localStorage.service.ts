@@ -97,8 +97,8 @@ class LocalStorageService {
       }
 
       // Generate filename: screen_1_photo_landscape.jpg, screen_2_photo_portrait.jpg, etc.
-      const orientationSuffix = screenOrientation || 'portrait'; // Default to portrait if no orientation
-      const filename = `screen_${screenNumber}_photo_${orientationSuffix}.jpg`;
+      const orientationSuffix = screenOrientation ? `_${screenOrientation}` : '';
+      const filename = `screen_${screenNumber}_photo${orientationSuffix}.jpg`;
       const filePath = path.join(folderPath, filename);
 
       // Remove data:image/xxx;base64, prefix if present
@@ -155,8 +155,8 @@ class LocalStorageService {
         return null;
       }
 
-      const orientationSuffix = screenOrientation || 'portrait'; // Default to portrait if no orientation
-      const filename = `screen_${screenNumber}_photo_${orientationSuffix}.jpg`;
+      const orientationSuffix = screenOrientation ? `_${screenOrientation}` : '';
+      const filename = `screen_${screenNumber}_photo${orientationSuffix}.jpg`;
       const key = `photos/${folderName}/${filename}`;
       
       // Remove data:image/xxx;base64, prefix if present
