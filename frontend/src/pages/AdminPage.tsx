@@ -848,7 +848,10 @@ function AdminPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                       {filterBuiltInScreens(screens)
                         .filter((screen) => !screen.isCollageScreen) // Exclude collage screens from mapping
-                        .map((screen, screenIndex) => (
+                        .map((screen) => {
+                          // Find the original index from All Screens section
+                          const originalIndex = filterBuiltInScreens(screens).findIndex(s => s.screenId === screen.screenId);
+                          return (
                           <label
                             key={screen.screenId}
                             className="flex items-center space-x-3 bg-gray-700/50 p-4 rounded-lg cursor-pointer hover:bg-gray-700 transition-colors"
@@ -870,7 +873,7 @@ function AdminPage() {
                             />
                             <span className="text-white">
                               <span className="bg-blue-600 text-white text-xs px-1 py-0.5 rounded font-bold mr-2">
-                                #{screenIndex + 1}
+                                #{originalIndex + 1}
                               </span>
                               {screen.label}
                               <br />
@@ -879,7 +882,7 @@ function AdminPage() {
                               </span>
                             </span>
                           </label>
-                        ))}
+                        )})}
                     </div>
 
                     <p className="text-sm text-gray-500 mt-3">
