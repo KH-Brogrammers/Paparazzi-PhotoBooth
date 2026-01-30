@@ -15,6 +15,7 @@ function ScreensPage() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [isCollageScreen, setIsCollageScreen] = useState(false);
+  const [connectedCameras, setConnectedCameras] = useState<Array<{cameraId: string, label: string, role: string, screenIndex: number}>>([]);
   const socketRef = useRef<any>(null);
 
   const captureScreenDisplay = async (originalImageData: ImageData) => {
@@ -122,6 +123,29 @@ function ScreensPage() {
       console.log(`📺 Screen serial number: #${serialNumber}`);
 
       setIsRegistered(true);
+
+      // Fetch camera mappings for this screen
+      const fetchCameraMappings = async () => {
+        try {
+          const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8800'}/api/mappings`);
+          const mappings = await response.json();
+          
+          const camerasForThisScreen = mappings
+            .filter((mapping: any) => mapping.screenIds.includes(screenInfo.screenId))
+            .map((mapping: any) => ({
+              cameraId: mapping.cameraId,
+              label: mapping.cameraLabel,
+              role: mapping.cameraId.includes('primary') ? 'PRIMARY' : 'SECONDARY',
+              screenIndex: mapping.screenIds.indexOf(screenInfo.screenId)
+            }));
+          
+          setConnectedCameras(camerasForThisScreen);
+        } catch (error) {
+          console.error('Failed to fetch camera mappings:', error);
+        }
+      };
+      
+      fetchCameraMappings();
 
       // Connect to socket
       const socket = socketClient.connect();
@@ -303,6 +327,30 @@ function ScreensPage() {
           <p className={`${currentImage ? "text-green-400" : "text-gray-400"}`}>
             {currentImage ? "● Active" : "○ Waiting"}
           </p>
+          
+          {/* Camera Mapping Details */}
+          <div className="mt-3 pt-2 border-t border-gray-600">
+            <p className="text-blue-400 font-semibold mb-2 text-xs">📷 Connected Cameras:</p>
+            {connectedCameras.length > 0 ? (
+              <div className="space-y-2">
+                {connectedCameras.map((camera, idx) => (
+                  <div key={camera.cameraId} className="bg-gray-800/50 rounded p-2">
+                    <div className="text-xs text-white font-semibold">{camera.label}</div>
+                    <div className="flex gap-2 mt-1">
+                      <span className="bg-green-600 text-white px-2 py-1 rounded text-xs">
+                        screen_{camera.screenIndex}
+                      </span>
+                      <span className="bg-green-600 text-white px-2 py-1 rounded text-xs">
+                        {camera.role}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500 text-xs">No cameras mapped</p>
+            )}
+          </div>
         </div>
       )}
 
