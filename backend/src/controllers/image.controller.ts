@@ -85,7 +85,7 @@ export class ImageController {
 
       // Save one image per connected mapped screen
       for (let i = 0; i < activeScreenIds.length; i++) {
-        const screenNumber = i + 1;
+        const screenNumber = i; // 0-based indexing
         const screenId = activeScreenIds[i];
         const screenImageId = `${imageId}_screen_${screenNumber}`;
 

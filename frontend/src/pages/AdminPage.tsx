@@ -338,7 +338,9 @@ function AdminPage() {
   };
 
   const handleSelectAllScreens = (cameraId: string) => {
-    const allScreenIds = screens.map((screen) => screen.screenId);
+    const allScreenIds = filterBuiltInScreens(screens)
+      .filter((screen) => !screen.isCollageScreen) // Exclude collage screens
+      .map((screen) => screen.screenId);
     setSelectedMappings((prev) => ({
       ...prev,
       [cameraId]: allScreenIds,
