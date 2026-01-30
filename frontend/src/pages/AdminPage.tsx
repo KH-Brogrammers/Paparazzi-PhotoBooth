@@ -183,16 +183,41 @@ function AdminPage() {
     try {
       setSaving(true);
 
-      // Save all mappings with group information
-      const savePromises = allCameras.map((camera) => {
-        const screenIds = selectedMappings[camera.deviceId] || [];
-        const groupId = cameraGroups[camera.deviceId] || 'Group 1';
-        return mappingApi.update(camera.deviceId, camera.label, screenIds, groupId);
-      });
+      // Get current camera IDs
+      const currentCameraIds = allCameras
+        .filter(camera => 
+          !["front-camera", "rear-camera"].includes(camera.deviceId) &&
+          !["Front Camera", "Rear Camera"].includes(camera.label)
+        )
+        .map(camera => camera.deviceId);
+
+      // First, clean up mappings for cameras that no longer exist
+      const existingMappings = await mappingApi.getAll();
+      const cleanupPromises = existingMappings
+        .filter(mapping => !currentCameraIds.includes(mapping.cameraId))
+        .map(mapping => mappingApi.delete(mapping.cameraId));
+      
+      if (cleanupPromises.length > 0) {
+        await Promise.all(cleanupPromises);
+        console.log(`🧹 Cleaned up ${cleanupPromises.length} old camera mappings`);
+      }
+
+      // Save all current mappings with group information
+      const savePromises = allCameras
+        .filter(camera => 
+          !["front-camera", "rear-camera"].includes(camera.deviceId) &&
+          !["Front Camera", "Rear Camera"].includes(camera.label)
+        )
+        .map((camera) => {
+          const screenIds = selectedMappings[camera.deviceId] || [];
+          const groupId = cameraGroups[camera.deviceId] || 'Group 1';
+          return mappingApi.update(camera.deviceId, camera.label, screenIds, groupId);
+        });
 
       await Promise.all(savePromises);
       await loadData(); // Reload to get updated data
 
+      console.log(`💾 Saved ${savePromises.length} camera mappings to database`);
       alert("Mappings saved successfully!");
       setSaving(false);
     } catch (error) {

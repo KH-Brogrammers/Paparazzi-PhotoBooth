@@ -55,24 +55,30 @@ export class MappingController {
         return;
       }
 
-      const mapping = await CameraMapping.findOneAndUpdate(
-        { cameraId },
-        {
+      // Delete existing mapping first to ensure clean update
+      await CameraMapping.findOneAndDelete({ cameraId });
+
+      // Create new mapping only if screenIds is not empty
+      let mapping = null;
+      if (screenIds.length > 0) {
+        mapping = await CameraMapping.create({
           cameraId,
           cameraLabel,
           screenIds,
           groupId: groupId || 'Group 1',
           isActive: true,
-        },
-        { upsert: true, new: true }
-      );
+        });
+        console.log(`💾 Saved mapping for camera ${cameraId} with ${screenIds.length} screens`);
+      } else {
+        console.log(`🗑️ Removed mapping for camera ${cameraId} (no screens selected)`);
+      }
 
       // Broadcast mapping update to all clients
       const socketService = getSocketService();
       const allMappings = await CameraMapping.find();
       socketService.broadcastMappingUpdate(allMappings);
 
-      res.status(200).json(mapping);
+      res.status(200).json(mapping || { message: 'Mapping removed (no screens selected)' });
     } catch (error) {
       console.error('Error updating mapping:', error);
       res.status(500).json({
