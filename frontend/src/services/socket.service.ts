@@ -8,27 +8,35 @@ class SocketClient {
   private socket: Socket | null = null;
 
   connect(): Socket {
-    if (!this.socket) {
-      this.socket = io(SOCKET_URL, {
-        transports: ['websocket', 'polling'],
-        reconnection: true,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
-        reconnectionAttempts: Infinity,
-      });
-
-      this.socket.on('connect', () => {
-        console.log('🔌 Connected to socket server');
-      });
-
-      this.socket.on('disconnect', () => {
-        console.log('🔌 Disconnected from socket server');
-      });
-
-      this.socket.on('connect_error', (error) => {
-        console.error('🔌 Socket connection error:', error);
-      });
+    // If already connected, return existing socket
+    if (this.socket && this.socket.connected) {
+      return this.socket;
     }
+
+    // Disconnect any existing socket first
+    if (this.socket) {
+      this.socket.disconnect();
+    }
+
+    this.socket = io(SOCKET_URL, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: Infinity,
+    });
+
+    this.socket.on('connect', () => {
+      console.log('🔌 Connected to socket server');
+    });
+
+    this.socket.on('disconnect', () => {
+      console.log('🔌 Disconnected from socket server');
+    });
+
+    this.socket.on('connect_error', (error) => {
+      console.error('🔌 Socket connection error:', error);
+    });
 
     return this.socket;
   }

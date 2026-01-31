@@ -115,7 +115,18 @@ export class SocketService {
       // Handle admin request for cameras
       socket.on('admin:request-cameras', () => {
         console.log(`📋 Admin requesting cameras`);
-        // Broadcast request to all camera devices
+        // Send currently connected cameras directly
+        const activeCameras = Array.from(this.cameraDeviceMap.entries()).map(([socketId, deviceId]) => {
+          const isPrimary = socketId === this.primaryCameraSocket;
+          return {
+            deviceId,
+            label: `Camera ${Math.floor(Math.random() * 1000)} - ${deviceId.replace('rear-camera-', '')}`,
+            isPrimary
+          };
+        });
+        socket.emit('admin:cameras-list', activeCameras);
+        
+        // Also broadcast to camera devices for any additional data
         socket.broadcast.emit('admin:request-cameras');
       });
 

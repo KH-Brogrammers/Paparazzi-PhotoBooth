@@ -96,6 +96,15 @@ function AdminPage() {
       });
     });
 
+    // Listen for direct camera list from backend (active cameras only)
+    socket.on("admin:cameras-list", (activeCameras: any[]) => {
+      console.log("📷 Active cameras from backend:", activeCameras);
+      setAllCameras(activeCameras.map(camera => ({
+        ...camera,
+        role: camera.isPrimary ? "PRIMARY" : "SECONDARY"
+      })));
+    });
+
     // Listen for individual camera registrations (for real-time updates)
     socket.on("camera:registered", (cameraData: any) => {
       console.log("📷 Single camera registered:", cameraData);

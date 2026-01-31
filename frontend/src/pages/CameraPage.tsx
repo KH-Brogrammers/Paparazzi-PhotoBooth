@@ -30,6 +30,7 @@ function CameraPage() {
   const [showQrCode, setShowQrCode] = useState(false);
   const [showCameraDetails, setShowCameraDetails] = useState(false);
   const [connectedScreensData, setConnectedScreensData] = useState<Record<string, Array<{screenId: string, label: string, serialNumber: number}>>>({});
+  const adminRequestTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load capture counts from database on mount
   useEffect(() => {
@@ -149,10 +150,18 @@ function CameraPage() {
       console.log("📷 Registering cameras with admin panel:", cameras);
       socketConnection.emit("cameras:register", cameras);
 
-      // Listen for admin requests for camera info
+      // Listen for admin requests for camera info with debounce
       socketConnection.on("admin:request-cameras", () => {
-        console.log("📋 Admin requested cameras, sending:", cameras);
-        socketConnection.emit("cameras:register", cameras);
+        // Clear existing timeout
+        if (adminRequestTimeoutRef.current) {
+          clearTimeout(adminRequestTimeoutRef.current);
+        }
+        
+        // Debounce admin requests to prevent spam
+        adminRequestTimeoutRef.current = setTimeout(() => {
+          console.log("📋 Admin requested cameras, sending:", cameras);
+          socketConnection.emit("cameras:register", cameras);
+        }, 100);
       });
 
       // Listen for QR code generation
@@ -187,6 +196,10 @@ function CameraPage() {
       );
 
       return () => {
+        // Clear admin request timeout
+        if (adminRequestTimeoutRef.current) {
+          clearTimeout(adminRequestTimeoutRef.current);
+        }
         socketConnection.disconnect();
       };
     }
@@ -200,6 +213,7 @@ function CameraPage() {
         const uniqueDeviceId = cameras[0]?.deviceId || "camera-device";
         console.log("🔄 Camera array changed, re-registering:", uniqueDeviceId);
         socket.emit("register:camera", uniqueDeviceId);
+        socket.emit("cameras:register", cameras);
       }, 200);
       
       return () => clearTimeout(timer);
@@ -288,12 +302,17 @@ function CameraPage() {
     if (canSwitchCamera) {
       console.log("🔄 Starting camera switch...");
       
-      // First switch the camera
+      // Disconnect current socket cleanly
+      if (socket) {
+        socket.disconnect();
+        setSocket(null);
+      }
+      
+      // Switch the camera
       await switchCamera();
       
-      // Wait for camera to fully initialize and then re-register
+      // Wait for camera to fully initialize then reconnect
       setTimeout(() => {
-        // Always reconnect socket after camera switch to ensure clean connection
         console.log("🔌 Reconnecting socket after camera switch...");
         const newSocket = socketClient.connect();
         setSocket(newSocket);
@@ -308,20 +327,34 @@ function CameraPage() {
           console.log("📷 Total cameras in system:", camerasData.length);
           setTotalCameraCount(camerasData.length);
         });
+
+        newSocket.on("admin:request-cameras", () => {
+          // Clear existing timeout
+          if (adminRequestTimeoutRef.current) {
+            clearTimeout(adminRequestTimeoutRef.current);
+          }
+          
+          // Debounce admin requests
+          adminRequestTimeoutRef.current = setTimeout(() => {
+            console.log("📋 Admin requested cameras, sending:", cameras);
+            newSocket.emit("cameras:register", cameras);
+          }, 100);
+        });
+
+        newSocket.on("admin:toggle-camera-details", ({ show }: { show: boolean }) => {
+          console.log(`👁️ Camera details ${show ? "shown" : "hidden"} from admin`);
+          setShowCameraDetails(show);
+        });
         
-        // Register the switched camera - wait for cameras array to update
-        const checkAndRegister = () => {
+        // Register the switched camera after a delay
+        setTimeout(() => {
           if (cameras.length > 0) {
             const uniqueDeviceId = cameras[0]?.deviceId || "camera-device";
-            console.log("🔄 Registering switched camera with NEW deviceId:", uniqueDeviceId);
+            console.log("🔄 Registering switched camera:", uniqueDeviceId);
             newSocket.emit("register:camera", uniqueDeviceId);
-          } else {
-            // If cameras not updated yet, try again
-            setTimeout(checkAndRegister, 200);
+            newSocket.emit("cameras:register", cameras);
           }
-        };
-        
-        setTimeout(checkAndRegister, 500);
+        }, 500);
       }, 1000);
     }
   };
