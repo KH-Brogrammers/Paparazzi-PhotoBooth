@@ -112,8 +112,8 @@ function CameraPage() {
       setSocket(socketConnection);
 
       // Register as camera with unique device ID
-      const uniqueDeviceId = cameras[0]?.deviceId || "camera-device";
-      socketConnection.emit("register:camera", uniqueDeviceId);
+      const deviceId = cameras[0]?.deviceId || "camera-device";
+      socketConnection.emit("register:camera", deviceId);
 
       // Listen for primary/secondary status from backend
       socketConnection.on(
@@ -145,6 +145,10 @@ function CameraPage() {
         console.log("🔄 Executing refresh command");
         handleClearScreens();
       });
+
+      // Register as camera with unique device ID
+      const cameraId = cameras[0]?.deviceId || "camera-device";
+      socketConnection.emit("register:camera", cameraId);
 
       // Register cameras with admin panel
       console.log("📷 Registering cameras with admin panel:", cameras);
@@ -215,9 +219,9 @@ function CameraPage() {
     if (socket && socket.connected && cameras.length > 0) {
       // Only register if camera actually changed
       const timer = setTimeout(() => {
-        const uniqueDeviceId = cameras[0]?.deviceId || "camera-device";
-        console.log("🔄 Camera array changed, re-registering:", uniqueDeviceId);
-        socket.emit("register:camera", uniqueDeviceId);
+        const currentDeviceId = cameras[0]?.deviceId || "camera-device";
+        console.log("🔄 Camera array changed, re-registering:", currentDeviceId);
+        socket.emit("register:camera", currentDeviceId);
         // Don't emit cameras:register here to avoid spam
       }, 200);
       
@@ -359,9 +363,10 @@ function CameraPage() {
         // Register the switched camera after a delay
         setTimeout(() => {
           if (cameras.length > 0) {
-            const uniqueDeviceId = cameras[0]?.deviceId || "camera-device";
-            console.log("🔄 Registering switched camera:", uniqueDeviceId);
-            newSocket.emit("register:camera", uniqueDeviceId);
+            const switchedDeviceId = cameras[0]?.deviceId || "camera-device";
+            console.log("🔄 Registering switched camera:", switchedDeviceId);
+            newSocket.emit("register:camera", switchedDeviceId);
+            // Immediately send camera details to admin
             newSocket.emit("cameras:register", cameras);
           }
         }, 500);

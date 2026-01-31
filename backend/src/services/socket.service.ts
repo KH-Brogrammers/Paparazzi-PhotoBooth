@@ -162,6 +162,12 @@ export class SocketService {
           const disconnectedDeviceId = this.cameraDeviceMap.get(socket.id);
           this.cameraDeviceMap.delete(socket.id);
           
+          // Notify admin panels about camera disconnection
+          if (disconnectedDeviceId) {
+            console.log(`📷 Camera disconnected: ${disconnectedDeviceId}`);
+            this.io.emit('camera:disconnected', disconnectedDeviceId);
+          }
+          
           // If primary camera disconnected, assign new primary
           if (socket.id === this.primaryCameraSocket) {
             this.primaryCameraSocket = null;

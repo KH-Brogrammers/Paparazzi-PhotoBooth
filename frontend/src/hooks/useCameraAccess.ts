@@ -13,6 +13,18 @@ const generateDeviceFingerprint = (): string => {
   return `${deviceId}${screenInfo.replace('x', '')}`;
 };
 
+// Generate consistent camera number based on facing mode
+const getCameraNumber = (facingMode: string): number => {
+  // Use a hash of facing mode + device fingerprint for consistent numbering
+  const fingerprint = generateDeviceFingerprint();
+  const combined = `${facingMode}-${fingerprint}`;
+  const hash = combined.split('').reduce((a, b) => {
+    a = ((a << 5) - a) + b.charCodeAt(0);
+    return a & a;
+  }, 0);
+  return Math.abs(hash) % 900 + 100; // 3-digit number between 100-999
+};
+
 export function useCameraAccess() {
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -79,7 +91,7 @@ export function useCameraAccess() {
       
       // Create consistent device identifier
       const deviceFingerprint = generateDeviceFingerprint();
-      const deviceIndex = Math.floor(Math.random() * 999) + 1; // Random 3-digit number
+      const deviceIndex = getCameraNumber('rear'); // Consistent number for rear camera
       
       // Always use rear camera regardless of device type
       const rearCameraDevices = [
@@ -181,7 +193,7 @@ export function useCameraAccess() {
     
     // Generate consistent device fingerprint for the switched camera
     const deviceFingerprint = generateDeviceFingerprint();
-    const deviceIndex = Math.floor(Math.random() * 999) + 1;
+    const deviceIndex = getCameraNumber(newFacingMode); // Consistent number based on facing mode
     const newDeviceId = `${newFacingMode}-camera-${deviceFingerprint}`;
     const newLabel = `Camera ${deviceIndex} - ${deviceFingerprint}`;
     

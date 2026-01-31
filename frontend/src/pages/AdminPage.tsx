@@ -70,6 +70,12 @@ function AdminPage() {
       setTimeout(() => loadData(), 500);
     });
 
+    // Listen for camera disconnections
+    socket.on("camera:disconnected", (deviceId: string) => {
+      console.log("📷 Camera disconnected:", deviceId);
+      setAllCameras((prev) => prev.filter(camera => camera.deviceId !== deviceId));
+    });
+
     // Listen for mapping updates
     socket.on("mappings:updated", () => {
       console.log("🔄 Mappings updated - refreshing admin panel");
