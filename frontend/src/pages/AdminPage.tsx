@@ -337,6 +337,35 @@ function AdminPage() {
     }
   };
 
+  // Handle making a camera primary
+  const handleMakePrimary = async (cameraId: string) => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8800'}/api/cameras/make-primary`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ cameraId }),
+      });
+
+      if (response.ok) {
+        // Update local state immediately
+        setAllCameras(prevCameras =>
+          prevCameras.map(camera => ({
+            ...camera,
+            role: camera.deviceId === cameraId ? 'PRIMARY' : 'SECONDARY'
+          }))
+        );
+        
+        console.log(`✅ Camera ${cameraId} is now PRIMARY`);
+      } else {
+        console.error('Failed to make camera primary');
+      }
+    } catch (error) {
+      console.error('Error making camera primary:', error);
+    }
+  };
+
   const handleSelectAllScreens = (cameraId: string) => {
     const allScreenIds = filterBuiltInScreens(screens)
       .filter((screen) => !screen.isCollageScreen) // Exclude collage screens
@@ -796,6 +825,14 @@ function AdminPage() {
                             ? "🎯 PRIMARY"
                             : "📷 SECONDARY"}
                         </span>
+                        {camera.role !== "PRIMARY" && (
+                          <button
+                            onClick={() => handleMakePrimary(camera.deviceId)}
+                            className="ml-2 px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded-full transition-colors"
+                          >
+                            Make Primary
+                          </button>
+                        )}
                         <button
                           onClick={() =>
                             handleRenameCamera(camera.deviceId, camera.label)

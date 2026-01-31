@@ -250,6 +250,36 @@ export class SocketService {
   public getIO(): SocketServer {
     return this.io;
   }
+
+  // Method to make a specific camera primary
+  public makeCameraPrimary(cameraId: string): boolean {
+    // Find the socket ID for this camera
+    const targetSocketId = Array.from(this.cameraDeviceMap.entries())
+      .find(([socketId, deviceId]) => deviceId === cameraId)?.[0];
+
+    if (!targetSocketId || !this.cameraSockets.has(targetSocketId)) {
+      console.error(`❌ Camera ${cameraId} not found or not connected`);
+      return false;
+    }
+
+    // Update primary camera
+    const oldPrimarySocket = this.primaryCameraSocket;
+    this.primaryCameraSocket = targetSocketId;
+
+    // Notify old primary it's now secondary
+    if (oldPrimarySocket && this.cameraSockets.has(oldPrimarySocket)) {
+      this.io.to(oldPrimarySocket).emit('camera:status', { isPrimary: false });
+    }
+
+    // Notify new primary
+    this.io.to(targetSocketId).emit('camera:status', { isPrimary: true });
+
+    // Broadcast updated camera list to admin panels
+    this.io.emit('cameras:updated');
+
+    console.log(`✅ Camera ${cameraId} is now PRIMARY`);
+    return true;
+  }
 }
 
 let socketService: SocketService | null = null;
