@@ -39,10 +39,40 @@ function AdminPage() {
         };
       }
       
-      deviceGroups[deviceFingerprint].cameras.push(camera);
+      // Check if this camera already exists in the group (by deviceId)
+      const existingIndex = deviceGroups[deviceFingerprint].cameras.findIndex(
+        existingCamera => existingCamera.deviceId === camera.deviceId
+      );
+      
+      if (existingIndex >= 0) {
+        // Update existing camera
+        deviceGroups[deviceFingerprint].cameras[existingIndex] = camera;
+      } else {
+        // Add new camera
+        deviceGroups[deviceFingerprint].cameras.push(camera);
+      }
       
       if (camera.role === 'PRIMARY') {
         deviceGroups[deviceFingerprint].primaryCamera = camera;
+      }
+    });
+
+    // Clean up disconnected cameras - only keep cameras that are in the current cameras list
+    Object.values(deviceGroups).forEach(group => {
+      group.cameras = group.cameras.filter(camera => 
+        cameras.some(currentCamera => currentCamera.deviceId === camera.deviceId)
+      );
+      
+      // Update primary camera if it was removed
+      if (group.primaryCamera && !group.cameras.some(camera => camera.deviceId === group.primaryCamera.deviceId)) {
+        group.primaryCamera = group.cameras.find(camera => camera.role === 'PRIMARY') || null;
+      }
+    });
+
+    // Remove empty groups
+    Object.keys(deviceGroups).forEach(fingerprint => {
+      if (deviceGroups[fingerprint].cameras.length === 0) {
+        delete deviceGroups[fingerprint];
       }
     });
 
@@ -973,7 +1003,9 @@ function AdminPage() {
                       </button>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {filterBuiltInScreens(screens).map((screen) => {
+                      {filterBuiltInScreens(screens)
+                        .filter((screen) => !screen.isCollageScreen) // Exclude collage screens from mapping
+                        .map((screen) => {
                         const activeCameraId = deviceGroup.primaryCamera?.deviceId || deviceGroup.cameras[0]?.deviceId;
                         const isSelected = selectedMappings[activeCameraId]?.includes(screen.screenId) || false;
                         return (
