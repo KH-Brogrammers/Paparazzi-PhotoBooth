@@ -51,19 +51,24 @@ export async function detectScreens(): Promise<DetectedScreen[]> {
                            screen.isInternal;
           return !isBuiltIn;
         })
-        .map((screen, index) => ({
-          screenId: `screen-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          label: screen.label || `Screen ${index + 1}`,
-          position: {
-            left: screen.left,
-            top: screen.top,
-          },
-          resolution: {
-            width: screen.width,
-            height: screen.height,
-          },
-          isPrimary: screen.isPrimary,
-        }));
+        .map((screen, index) => {
+          // Create unique ID for each tab even on same screen
+          const screenId = `screen-${Date.now()}${Math.random().toString(36).substr(2, 6)}`;
+          
+          return {
+            screenId,
+            label: screen.label || `Screen ${index + 1}`,
+            position: {
+              left: screen.left,
+              top: screen.top,
+            },
+            resolution: {
+              width: screen.width,
+              height: screen.height,
+            },
+            isPrimary: screen.isPrimary,
+          };
+        });
     } else {
       // Fallback: Generate unique ID
       console.warn('Window Placement API not available, using fallback');
@@ -77,7 +82,7 @@ export async function detectScreens(): Promise<DetectedScreen[]> {
 
 export function generateScreenId(): string {
   // Generate unique ID for each tab/window
-  return `screen-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  return `screen-${Date.now()}${Math.random().toString(36).substr(2, 6)}`;
 }
 
 export function getCurrentScreenInfo(): DetectedScreen {

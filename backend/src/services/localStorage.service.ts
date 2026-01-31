@@ -96,7 +96,7 @@ class LocalStorageService {
         console.log(`📁 Created folder: ${folderPath}`);
       }
 
-      // Generate filename: screen_1_photo_landscape.jpg, screen_2_photo_portrait.jpg, etc.
+      // Generate filename: screen_0_photo_landscape.jpg, screen_1_photo_portrait.jpg, etc.
       const orientationSuffix = screenOrientation ? `_${screenOrientation}` : '';
       const filename = `screen_${screenNumber}_photo${orientationSuffix}.jpg`;
       const filePath = path.join(folderPath, filename);

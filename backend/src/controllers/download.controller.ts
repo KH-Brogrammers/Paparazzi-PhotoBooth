@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { CapturedImage } from '../models/capturedImage.model';
+import { config } from '../config/env.config';
 import path from 'path';
 import fs from 'fs';
 
@@ -9,40 +10,40 @@ export const downloadPhotosZip = async (req: Request, res: Response) => {
     
     console.log('📦 Collage download request for session:', sessionId);
     
-    // Extract timeFolder from sessionId
-    const dashIndex = sessionId.indexOf('-');
-    const timeFolder = sessionId.substring(dashIndex + 1);
-    const correctedTimeFolder = timeFolder.replace(/^(\d{2})-(\d{2})-(\d{2})/, '$1:$2:$3');
+    // Use configured photos directory path
+    const photosPath = config.imageStoragePath;
+    console.log('📁 Photos path:', photosPath);
     
-    console.log('📁 Session folder:', correctedTimeFolder);
+    // Find the most recent folder with collages
+    let sessionFolderPath: string | null = null;
     
-    // Path to the session folder (fallback)
-    const sessionFolderPath = path.join(process.cwd(), '..', 'photos', correctedTimeFolder);
-    
-    // Check if collages exist in local storage (fallback) or S3 (primary)
-    const localLandscape = path.join(sessionFolderPath, 'collage_landscape.jpg');
-    const localPortrait = path.join(sessionFolderPath, 'collage_portrait.jpg');
-    const hasLocalCollages = fs.existsSync(localLandscape) && fs.existsSync(localPortrait);
-    
-    let hasS3Collages = false;
-    if (!hasLocalCollages) {
-      // Check S3 for collage files
-      const parts = sessionId.split('-');
-      const timestamp = parseInt(parts[0]);
-      const startTime = new Date(timestamp - 2 * 60 * 1000);
-      const endTime = new Date(timestamp + 2 * 60 * 1000);
+    if (fs.existsSync(photosPath)) {
+      const folders = fs.readdirSync(photosPath, { withFileTypes: true })
+        .filter(dirent => dirent.isDirectory())
+        .map(dirent => dirent.name)
+        .sort((a, b) => b.localeCompare(a)); // Sort newest first
       
-      const collageImages = await CapturedImage.find({
-        timestamp: { $gte: startTime, $lte: endTime },
-        cameraId: 'collage',
-        storageType: 's3'
-      });
+      // console.log('📁 Available folders:', folders);
       
-      hasS3Collages = collageImages.length >= 2;
-      console.log(`📸 Found ${collageImages.length} S3 collage images`);
+      // Look for folder with collages
+      for (const folder of folders) {
+        const folderPath = path.join(photosPath, folder);
+        const landscapePath = path.join(folderPath, 'collage_landscape.jpg');
+        const portraitPath = path.join(folderPath, 'collage_portrait.jpg');
+        
+        console.log(`🔍 Checking folder: ${folder}`);
+        console.log(`🔍 Landscape: ${fs.existsSync(landscapePath)}`);
+        console.log(`🔍 Portrait: ${fs.existsSync(portraitPath)}`);
+        
+        if (fs.existsSync(landscapePath) && fs.existsSync(portraitPath)) {
+          sessionFolderPath = folderPath;
+          console.log('✅ Found collages in folder:', folder);
+          break;
+        }
+      }
     }
     
-    if (hasLocalCollages || hasS3Collages) {
+    if (sessionFolderPath) {
       // Send HTML page that triggers both downloads
       const html = `
 <!DOCTYPE html>
@@ -93,8 +94,8 @@ export const downloadPhotosZip = async (req: Request, res: Response) => {
       res.send(html);
       
     } else {
-      console.log('❌ No collage files found in local storage or S3');
-      res.status(404).json({ error: 'No collage files found for this session' });
+      console.log('❌ No collage files found in photos directory');
+      res.status(404).json({ error: 'No collage files found' });
     }
     
   } catch (error) {
@@ -107,61 +108,45 @@ export const downloadSingleCollage = async (req: Request, res: Response) => {
   try {
     const { sessionId, orientation } = req.params;
     
-    // Extract timeFolder from sessionId
-    const dashIndex = sessionId.indexOf('-');
-    const timeFolder = sessionId.substring(dashIndex + 1);
-    const correctedTimeFolder = timeFolder.replace(/^(\d{2})-(\d{2})-(\d{2})/, '$1:$2:$3');
+    console.log(`📥 Single collage download: ${orientation}`);
     
-    // Try local storage first (fallback)
-    const sessionFolderPath = path.join(process.cwd(), '..', 'photos', correctedTimeFolder);
-    const collagePath = path.join(sessionFolderPath, `collage_${orientation}.jpg`);
+    // Use configured photos directory path
+    const photosPath = config.imageStoragePath;
     
-    if (fs.existsSync(collagePath)) {
-      // Serve from local storage (fallback)
+    // Find the most recent folder with the requested collage
+    let collagePath: string | null = null;
+    
+    if (fs.existsSync(photosPath)) {
+      const folders = fs.readdirSync(photosPath, { withFileTypes: true })
+        .filter(dirent => dirent.isDirectory())
+        .map(dirent => dirent.name)
+        .sort((a, b) => b.localeCompare(a)); // Sort newest first
+      
+      // Look for folder with the requested collage
+      for (const folder of folders) {
+        const folderPath = path.join(photosPath, folder);
+        const testCollagePath = path.join(folderPath, `collage_${orientation}.jpg`);
+        
+        if (fs.existsSync(testCollagePath)) {
+          collagePath = testCollagePath;
+          console.log(`✅ Found ${orientation} collage in folder:`, folder);
+          break;
+        }
+      }
+    }
+    
+    if (collagePath) {
+      // Serve from local storage
       res.setHeader('Content-Type', 'image/jpeg');
       res.setHeader('Content-Disposition', `attachment; filename="collage_${orientation}.jpg"`);
       
       const fileStream = fs.createReadStream(collagePath);
       fileStream.pipe(res);
       
-      console.log(`✅ Downloaded ${orientation} collage from local storage (fallback)`);
+      console.log(`✅ Downloaded ${orientation} collage from local storage`);
     } else {
-      // Try S3 (primary storage)
-      console.log(`⚠️ Local ${orientation} collage not found, trying S3 (primary storage)...`);
-      
-      const parts = sessionId.split('-');
-      const timestamp = parseInt(parts[0]);
-      const startTime = new Date(timestamp - 2 * 60 * 1000);
-      const endTime = new Date(timestamp + 2 * 60 * 1000);
-      
-      const collageImage = await CapturedImage.findOne({
-        timestamp: { $gte: startTime, $lte: endTime },
-        cameraId: 'collage',
-        storageType: 's3',
-        s3Key: { $regex: orientation }
-      });
-      
-      if (collageImage && collageImage.s3Url) {
-        // Download from S3 and stream to user
-        console.log(`📥 Downloading ${orientation} collage from S3:`, collageImage.s3Url);
-        
-        const response = await fetch(collageImage.s3Url);
-        if (response.ok) {
-          res.setHeader('Content-Type', 'image/jpeg');
-          res.setHeader('Content-Disposition', `attachment; filename="collage_${orientation}.jpg"`);
-          
-          const buffer = Buffer.from(await response.arrayBuffer());
-          res.send(buffer);
-          
-          console.log(`✅ Downloaded ${orientation} collage from S3 (primary storage)`);
-        } else {
-          console.log(`❌ Failed to download ${orientation} collage from S3`);
-          res.status(404).json({ error: `Failed to download ${orientation} collage from S3` });
-        }
-      } else {
-        console.log(`❌ ${orientation} collage not found in S3 database`);
-        res.status(404).json({ error: `${orientation} collage not found` });
-      }
+      console.log(`❌ ${orientation} collage not found`);
+      res.status(404).json({ error: `${orientation} collage not found` });
     }
     
   } catch (error) {

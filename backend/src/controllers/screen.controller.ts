@@ -21,25 +21,43 @@ export class ScreenController {
         return;
       }
 
-      const screen = await Screen.findOneAndUpdate(
-        { screenId },
-        {
-          screenId,
-          label,
-          position,
-          resolution,
-          isPrimary: isPrimary || false,
-          isAvailable: true,
-          lastSeen: new Date(),
-        },
-        { upsert: true, new: true }
-      );
+      // Check if screen already exists
+      const existingScreen = await Screen.findOne({ screenId });
+      
+      if (existingScreen) {
+        // Update existing screen's lastSeen and availability
+        existingScreen.isAvailable = true;
+        existingScreen.lastSeen = new Date();
+        await existingScreen.save();
+        
+        console.log(`📺 Screen reconnected: ${screenId}`);
+        
+        // Notify admin panels about screen reconnection
+        const socketService = getSocketService();
+        socketService.getIO().emit('screen:reconnected', { screenId });
+        
+        res.status(200).json(existingScreen);
+        return;
+      }
 
-      // Notify admin panels about screen registration
+      // Create new screen if it doesn't exist
+      const screen = await Screen.create({
+        screenId,
+        label,
+        position,
+        resolution,
+        isPrimary: isPrimary || false,
+        isAvailable: true,
+        lastSeen: new Date(),
+      });
+
+      console.log(`📺 New screen registered: ${screenId}`);
+
+      // Notify admin panels about new screen registration
       const socketService = getSocketService();
       socketService.getIO().emit('screen:registered', { screenId });
 
-      res.status(200).json(screen);
+      res.status(201).json(screen);
     } catch (error) {
       console.error('Error registering screen:', error);
       res.status(500).json({
@@ -191,12 +209,30 @@ export class ScreenController {
 
       console.log(`📁 Using group session for screen capture ${cameraId}: ${timeFolder}`);
 
+      // Get screen data to determine orientation
+      const screen = await Screen.findOne({ screenId });
+      let screenOrientation = "";
+      let screenResolution: { width: number; height: number } | undefined;
+
+      if (screen?.resolution?.width && screen?.resolution?.height) {
+        screenOrientation =
+          screen.resolution.width >= screen.resolution.height
+            ? "landscape"
+            : "portrait";
+        screenResolution = {
+          width: screen.resolution.width,
+          height: screen.resolution.height,
+        };
+      }
+
       // Save screen capture to storage
       const { relativePath } = await localStorageService.saveImageWithFolder(
         screenImageData,
         folderName,
         screenNumber,
-        timestampNum
+        timestampNum,
+        screenOrientation,
+        screenResolution
       );
 
       const localUrl = `${process.env.BACKEND_URL || 'http://localhost:8800'}/api/images/local/${relativePath}`;
@@ -212,7 +248,9 @@ export class ScreenController {
             screenImageData,
             folderName,
             screenNumber,
-            timestampNum
+            timestampNum,
+            screenOrientation,
+            screenResolution
           );
 
           if (s3Result) {
@@ -241,7 +279,6 @@ export class ScreenController {
 
       // Broadcast screen capture to collage screen
       const socketService = getSocketService();
-      const screen = await Screen.findOne({ screenId });
       socketService.broadcastScreenCapture(screenId, {
         imageUrl: s3Url || localUrl,
         rotation: screen?.rotation || 0,

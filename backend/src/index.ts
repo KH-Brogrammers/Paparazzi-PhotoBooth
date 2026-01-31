@@ -27,6 +27,23 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use('/api', routes);
 
 // Health check
+// API endpoint to make a camera primary
+app.post('/api/cameras/make-primary', (req: Request, res: Response) => {
+  const { cameraId } = req.body;
+  
+  if (!cameraId) {
+    return res.status(400).json({ error: 'Camera ID is required' });
+  }
+  
+  const success = socketService.makeCameraPrimary(cameraId);
+  
+  if (success) {
+    res.status(200).json({ message: `Camera ${cameraId} is now primary` });
+  } else {
+    res.status(404).json({ error: 'Camera not found or not connected' });
+  }
+});
+
 app.get('/health', (req: Request, res: Response) => {
   res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });

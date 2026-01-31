@@ -18,6 +18,7 @@ Paparazzi-PhotoBooth.pem
 creed
 .env
 backend/.env
+PaP_photos.zip
 
 # Editor directories and files
 .vscode/*

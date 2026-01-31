@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 import { useCameraAccess } from "../hooks/useCameraAccess";
 import { useImageCapture } from "../hooks/useImageCapture";
-import { screenApi, imageApi } from "../services/backend-api.service";
+import { screenApi, imageApi, mappingApi } from "../services/backend-api.service";
 import { socketClient } from "../services/socket.service";
 import CameraGrid from "../components/CameraGrid";
 import LoadingSpinner from "../components/LoadingSpinner";
@@ -29,6 +29,7 @@ function CameraPage() {
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [showQrCode, setShowQrCode] = useState(false);
   const [showCameraDetails, setShowCameraDetails] = useState(false);
+  const [connectedScreensData, setConnectedScreensData] = useState<Record<string, Array<{screenId: string, label: string, serialNumber: number}>>>({});
 
   // Load capture counts from database on mount
   useEffect(() => {
@@ -45,6 +46,63 @@ function CameraPage() {
 
     loadCaptureCounts();
   }, []);
+
+  // Load connected screens data when camera details are shown
+  useEffect(() => {
+    const loadConnectedScreensData = async () => {
+      if (!showCameraDetails || cameras.length === 0) {
+        setConnectedScreensData({});
+        return;
+      }
+
+      try {
+        const [mappings, screens] = await Promise.all([
+          mappingApi.getAll(),
+          screenApi.getAll()
+        ]);
+
+        // Filter built-in screens
+        const filterBuiltInScreens = (screens: any[]) => {
+          return screens.filter(screen => 
+            !screen.label?.toLowerCase().includes('built-in') && 
+            !screen.label?.toLowerCase().includes('internal')
+          );
+        };
+
+        const filteredScreens = filterBuiltInScreens(screens);
+        
+        const connectedData: Record<string, Array<{screenId: string, label: string, serialNumber: number}>> = {};
+        
+        cameras.forEach(camera => {
+          const mapping = mappings.find((m: any) => m.cameraId === camera.deviceId);
+          if (mapping && mapping.screenIds) {
+            connectedData[camera.deviceId] = mapping.screenIds
+              .map((screenId: string) => {
+                const screen = filteredScreens.find((s: any) => s.screenId === screenId);
+                if (screen) {
+                  const serialNumber = filteredScreens.findIndex((s: any) => s.screenId === screenId) + 1;
+                  return {
+                    screenId: screen.screenId,
+                    label: screen.label,
+                    serialNumber
+                  };
+                }
+                return null;
+              })
+              .filter(Boolean);
+          } else {
+            connectedData[camera.deviceId] = [];
+          }
+        });
+
+        setConnectedScreensData(connectedData);
+      } catch (error) {
+        console.error("Error loading connected screens data:", error);
+      }
+    };
+
+    loadConnectedScreensData();
+  }, [showCameraDetails, cameras]);
 
   // Determine if this is primary camera based on device fingerprint order
   useEffect(() => {
@@ -284,6 +342,7 @@ function CameraPage() {
               cameraRefs={cameraRefs}
               captureCounts={captureCounts}
               showCameraDetails={showCameraDetails}
+              connectedScreensData={connectedScreensData}
             />
 
             {/* Global Capture Button - Only show for primary camera */}

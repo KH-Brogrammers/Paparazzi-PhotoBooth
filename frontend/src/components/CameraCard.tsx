@@ -12,6 +12,8 @@ interface CameraCardProps {
   camera: Camera;
   captureCount: number;
   showCameraDetails?: boolean;
+  cameraIndex?: number;
+  connectedScreens?: Array<{screenId: string, label: string, serialNumber: number}>;
 }
 
 export interface CameraCardRef {
@@ -24,7 +26,7 @@ export interface CameraCardRef {
 }
 
 const CameraCard = forwardRef<CameraCardRef, CameraCardProps>(
-  ({ camera, captureCount, showCameraDetails = false }, ref) => {
+  ({ camera, captureCount, showCameraDetails = false, cameraIndex = 0, connectedScreens = [] }, ref) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [showFlash, setShowFlash] = useState(false);
 
@@ -54,21 +56,21 @@ const CameraCard = forwardRef<CameraCardRef, CameraCardProps>(
       <div className="relative w-full h-full bg-white overflow-hidden flex justify-center flex-col min-h-0">
         {/* Camera Label */}
         {showCameraDetails && (
-          <div className="absolute left-0 p-4 right-0 bottom-0 z-10 ">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-white font-semibold text-lg truncate">
-                  {camera.label}
-                </h3>
-                <p className="text-gray-300 text-sm">
-                  {camera.deviceId.substring(0, 8)}...
+          <div className="absolute left-0 p-4 right-0 bottom-0 z-10 bg-black/70 rounded-t-lg">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="bg-blue-600 text-white text-xs px-2 py-1 rounded font-bold">
+                    #{cameraIndex + 1}
+                  </span>
+                  <h3 className="text-white font-semibold text-lg truncate">
+                    {camera.label}
+                  </h3>
+                </div>
+                <p className="text-gray-300 text-sm mb-2">
+                  ID: {camera.deviceId.substring(0, 12)}...
                 </p>
               </div>
-            {/* {captureCount > 0 && (
-            <div className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-              {captureCount} captured
-            </div>
-          )} */}
             </div>
           </div>
         )}

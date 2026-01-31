@@ -183,16 +183,41 @@ function AdminPage() {
     try {
       setSaving(true);
 
-      // Save all mappings with group information
-      const savePromises = allCameras.map((camera) => {
-        const screenIds = selectedMappings[camera.deviceId] || [];
-        const groupId = cameraGroups[camera.deviceId] || 'Group 1';
-        return mappingApi.update(camera.deviceId, camera.label, screenIds, groupId);
-      });
+      // Get current camera IDs
+      const currentCameraIds = allCameras
+        .filter(camera => 
+          !["front-camera", "rear-camera"].includes(camera.deviceId) &&
+          !["Front Camera", "Rear Camera"].includes(camera.label)
+        )
+        .map(camera => camera.deviceId);
+
+      // First, clean up mappings for cameras that no longer exist
+      const existingMappings = await mappingApi.getAll();
+      const cleanupPromises = existingMappings
+        .filter(mapping => !currentCameraIds.includes(mapping.cameraId))
+        .map(mapping => mappingApi.delete(mapping.cameraId));
+      
+      if (cleanupPromises.length > 0) {
+        await Promise.all(cleanupPromises);
+        console.log(`🧹 Cleaned up ${cleanupPromises.length} old camera mappings`);
+      }
+
+      // Save all current mappings with group information
+      const savePromises = allCameras
+        .filter(camera => 
+          !["front-camera", "rear-camera"].includes(camera.deviceId) &&
+          !["Front Camera", "Rear Camera"].includes(camera.label)
+        )
+        .map((camera) => {
+          const screenIds = selectedMappings[camera.deviceId] || [];
+          const groupId = cameraGroups[camera.deviceId] || 'Group 1';
+          return mappingApi.update(camera.deviceId, camera.label, screenIds, groupId);
+        });
 
       await Promise.all(savePromises);
       await loadData(); // Reload to get updated data
 
+      console.log(`💾 Saved ${savePromises.length} camera mappings to database`);
       alert("Mappings saved successfully!");
       setSaving(false);
     } catch (error) {
@@ -312,8 +337,39 @@ function AdminPage() {
     }
   };
 
+  // Handle making a camera primary
+  const handleMakePrimary = async (cameraId: string) => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8800'}/api/cameras/make-primary`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ cameraId }),
+      });
+
+      if (response.ok) {
+        // Update local state immediately
+        setAllCameras(prevCameras =>
+          prevCameras.map(camera => ({
+            ...camera,
+            role: camera.deviceId === cameraId ? 'PRIMARY' : 'SECONDARY'
+          }))
+        );
+        
+        console.log(`✅ Camera ${cameraId} is now PRIMARY`);
+      } else {
+        console.error('Failed to make camera primary');
+      }
+    } catch (error) {
+      console.error('Error making camera primary:', error);
+    }
+  };
+
   const handleSelectAllScreens = (cameraId: string) => {
-    const allScreenIds = screens.map((screen) => screen.screenId);
+    const allScreenIds = filterBuiltInScreens(screens)
+      .filter((screen) => !screen.isCollageScreen) // Exclude collage screens
+      .map((screen) => screen.screenId);
     setSelectedMappings((prev) => ({
       ...prev,
       [cameraId]: allScreenIds,
@@ -512,7 +568,7 @@ function AdminPage() {
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filterBuiltInScreens(screens).map((screen) => (
+            {filterBuiltInScreens(screens).map((screen, index) => (
               <div
                 key={screen.screenId}
                 className={`bg-gray-800 border-2 rounded-lg p-4 ${
@@ -523,6 +579,9 @@ function AdminPage() {
               >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2">
+                    <span className="bg-blue-600 text-white text-xs px-2 py-1 rounded font-bold">
+                      #{index + 1}
+                    </span>
                     <h3 className="text-white font-semibold text-lg">
                       {screen.label}
                     </h3>
@@ -550,7 +609,7 @@ function AdminPage() {
                   </div>
                 </div>
                 <p className="text-gray-400 text-sm mb-1">
-                  ID: {screen.screenId.substring(0, 20)}...
+                  ID: {screen.screenId.substring(screen.screenId.length - 6)}
                 </p>
                 {screen.resolution && (
                   <p className="text-gray-400 text-sm mb-2">
@@ -736,6 +795,9 @@ function AdminPage() {
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center space-x-4">
                         <h3 className="text-white font-semibold text-xl">
+                          <span className="bg-blue-600 text-white text-xs px-2 py-1 rounded font-bold mr-2">
+                            #{index + 1}
+                          </span>
                           📷 {camera.label}
                         </h3>
                         <div className="flex items-center space-x-2">
@@ -763,6 +825,14 @@ function AdminPage() {
                             ? "🎯 PRIMARY"
                             : "📷 SECONDARY"}
                         </span>
+                        {camera.role !== "PRIMARY" && (
+                          <button
+                            onClick={() => handleMakePrimary(camera.deviceId)}
+                            className="ml-2 px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded-full transition-colors"
+                          >
+                            Make Primary
+                          </button>
+                        )}
                         <button
                           onClick={() =>
                             handleRenameCamera(camera.deviceId, camera.label)
@@ -806,7 +876,7 @@ function AdminPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                       {filterBuiltInScreens(screens)
                         .filter((screen) => !screen.isCollageScreen) // Exclude collage screens from mapping
-                        .map((screen) => (
+                        .map((screen, screenIndex) => (
                           <label
                             key={screen.screenId}
                             className="flex items-center space-x-3 bg-gray-700/50 p-4 rounded-lg cursor-pointer hover:bg-gray-700 transition-colors"
@@ -826,7 +896,13 @@ function AdminPage() {
                               }
                               className="w-5 h-5 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
                             />
-                            <span className="text-white">{screen.label}</span>
+                            <span className="text-white">
+                              {screen.label}
+                              <br />
+                              <span className="text-xs text-gray-400">
+                                ID: {screen.screenId.substring(screen.screenId.length - 6)}
+                              </span>
+                            </span>
                           </label>
                         ))}
                     </div>
