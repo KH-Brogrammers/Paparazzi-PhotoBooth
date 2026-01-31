@@ -31,10 +31,15 @@ export function useCameraAccess() {
   const [error, setError] = useState<string | null>(null);
   const [currentCameraIndex, setCurrentCameraIndex] = useState(0);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
+  const [deviceId, setDeviceId] = useState<string>(''); // Persistent device ID
   const streamsRef = useRef<Map<string, MediaStream>>(new Map());
 
   useEffect(() => {
-    initializeCameras();
+    // Generate persistent device ID once
+    const persistentDeviceId = generateDeviceFingerprint();
+    setDeviceId(persistentDeviceId);
+    
+    initializeCameras(persistentDeviceId);
 
     return () => {
       // Cleanup: Stop all streams when component unmounts
@@ -45,7 +50,7 @@ export function useCameraAccess() {
     };
   }, []);
 
-  const initializeCameras = async () => {
+  const initializeCameras = async (persistentDeviceId: string) => {
     try {
       setIsLoading(true);
       setError(null);
@@ -55,95 +60,15 @@ export function useCameraAccess() {
         throw new Error('Camera API is not supported in this browser');
       }
 
-      // Get all video input devices first
-      let devices = await navigator.mediaDevices.enumerateDevices();
-      let videoDevices = devices.filter(
-        (device) => device.kind === 'videoinput'
-      );
+      // Get permission first
+      const permissionStream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+      });
+      permissionStream.getTracks().forEach((track) => track.stop());
 
-      // If no devices found or labels are empty, request permission first
-      if (videoDevices.length === 0 || !videoDevices[0].label) {
-        console.log('Requesting camera permission...');
-        const permissionStream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-        });
+      // Create camera with current facing mode
+      await createCameraStream(persistentDeviceId, facingMode);
 
-        // Stop the permission stream
-        permissionStream.getTracks().forEach((track) => track.stop());
-
-        // Re-enumerate devices to get labels
-        devices = await navigator.mediaDevices.enumerateDevices();
-        videoDevices = devices.filter(
-          (device) => device.kind === 'videoinput'
-        );
-      }
-
-      if (videoDevices.length === 0) {
-        setError('No cameras found on this device');
-        setIsLoading(false);
-        return;
-      }
-
-      console.log(`Found ${videoDevices.length} camera(s):`, videoDevices);
-
-      // Force rear camera for ALL devices - no front camera support
-      console.log('🎯 Forcing REAR camera only for ALL devices');
-      
-      // Create consistent device identifier
-      const deviceFingerprint = generateDeviceFingerprint();
-      const deviceIndex = getCameraNumber('rear'); // Consistent number for rear camera
-      
-      // Always use rear camera regardless of device type
-      const rearCameraDevices = [
-        {
-          deviceId: `rear-camera-${deviceFingerprint}`, 
-          label: `Camera ${deviceIndex} - ${deviceFingerprint}`,
-          kind: 'videoinput' as MediaDeviceKind,
-          groupId: 'rear-only'
-        }
-      ];
-
-      videoDevices = rearCameraDevices;
-      console.log('✅ All devices forced to use REAR camera only with unique ID:', deviceFingerprint);
-
-      // Initialize cameras with streams one by one
-      const initializedCameras: Camera[] = [];
-
-      for (const device of videoDevices) {
-        try {
-          console.log(`Initializing camera: ${device.label || device.deviceId}`);
-          
-          let constraints;
-          
-          // Always force rear camera for all devices
-          constraints = {
-            video: {
-              facingMode: facingMode, // Use current facing mode
-              width: { ideal: 1920 },
-              height: { ideal: 1080 },
-            },
-          };
-
-          const stream = await navigator.mediaDevices.getUserMedia(constraints);
-          streamsRef.current.set(device.deviceId, stream);
-
-          initializedCameras.push({
-            deviceId: device.deviceId,
-            label: device.label || `Camera ${initializedCameras.length + 1}`,
-            stream,
-          });
-
-          console.log(`Successfully initialized: ${device.label || device.deviceId}`);
-        } catch (err) {
-          console.error(`Failed to initialize camera ${device.label || device.deviceId}:`, err);
-        }
-      }
-
-      if (initializedCameras.length === 0) {
-        throw new Error('Failed to initialize any cameras');
-      }
-
-      setCameras(initializedCameras);
       setIsLoading(false);
     } catch (err: any) {
       console.error('Error accessing cameras:', err);
@@ -154,88 +79,85 @@ export function useCameraAccess() {
     }
   };
 
-  const stopCamera = (deviceId: string) => {
-    const stream = streamsRef.current.get(deviceId);
-    if (stream) {
-      stream.getTracks().forEach((track) => track.stop());
-      streamsRef.current.delete(deviceId);
-    }
-  };
-
-  const restartCamera = async (deviceId: string) => {
+  const createCameraStream = async (persistentDeviceId: string, currentFacingMode: 'user' | 'environment') => {
     try {
-      stopCamera(deviceId);
+      // Stop existing stream
+      const existingStream = streamsRef.current.get(persistentDeviceId);
+      if (existingStream) {
+        existingStream.getTracks().forEach((track) => track.stop());
+      }
 
+      // Create new stream with current facing mode
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: facingMode, // Use current facing mode
+          facingMode: currentFacingMode,
           width: { ideal: 1920 },
           height: { ideal: 1080 },
         },
       });
 
-      streamsRef.current.set(deviceId, stream);
+      streamsRef.current.set(persistentDeviceId, stream);
 
-      setCameras((prev) =>
-        prev.map((cam) =>
-          cam.deviceId === deviceId ? { ...cam, stream } : cam
-        )
-      );
+      // Generate camera label based on current mode
+      const cameraNumber = getCameraNumber(currentFacingMode);
+      const cameraLabel = `Camera ${cameraNumber} - ${persistentDeviceId}`;
+      const cameraDeviceId = `${currentFacingMode}-camera-${persistentDeviceId}`;
+
+      // Update cameras array with single camera (current active camera)
+      setCameras([{
+        deviceId: cameraDeviceId,
+        label: cameraLabel,
+        stream,
+      }]);
+
+      console.log(`✅ ${currentFacingMode} camera initialized:`, cameraLabel);
+    } catch (err) {
+      console.error(`Failed to initialize ${currentFacingMode} camera:`, err);
+      throw err;
+    }
+  };
+
+  const stopCamera = (cameraDeviceId: string) => {
+    // Use persistent device ID for stream management
+    const stream = streamsRef.current.get(deviceId);
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop());
+    }
+  };
+
+  const restartCamera = async (cameraDeviceId: string) => {
+    if (!deviceId) return;
+    
+    try {
+      await createCameraStream(deviceId, facingMode);
     } catch (err) {
       console.error('Error restarting camera:', err);
     }
   };
 
   const switchCamera = async () => {
+    if (!deviceId) return;
+    
     // Toggle between front and rear camera
     const newFacingMode = facingMode === 'environment' ? 'user' : 'environment';
     setFacingMode(newFacingMode);
     
-    // Generate consistent device fingerprint for the switched camera
-    const deviceFingerprint = generateDeviceFingerprint();
-    const deviceIndex = getCameraNumber(newFacingMode); // Consistent number based on facing mode
-    const newDeviceId = `${newFacingMode}-camera-${deviceFingerprint}`;
-    const newLabel = `Camera ${deviceIndex} - ${deviceFingerprint}`;
+    console.log(`🔄 Switching to ${newFacingMode} camera on device ${deviceId}`);
     
-    // Stop all current cameras
-    cameras.forEach(camera => stopCamera(camera.deviceId));
-    
-    // Create new camera with switched facing mode
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: newFacingMode,
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-        },
-      });
-
-      streamsRef.current.set(newDeviceId, stream);
-
-      // Update cameras array with new camera
-      setCameras([{
-        deviceId: newDeviceId,
-        label: newLabel,
-        stream,
-      }]);
-
-      console.log(`✅ Switched to ${newFacingMode} camera:`, newLabel);
-    } catch (err) {
-      console.error('Error switching camera:', err);
-    }
+    // Create new camera stream with switched facing mode
+    await createCameraStream(deviceId, newFacingMode);
   };
-
-  const canSwitchCamera = true; // Always show button for user control
-  const currentCamera = cameras[currentCameraIndex];
 
   return {
     cameras,
     isLoading,
     error,
-    currentCamera,
-    canSwitchCamera,
+    currentCamera: cameras[0], // Always return the current active camera
+    canSwitchCamera: true, // Always allow switching between front/back
     switchCamera,
     stopCamera,
     restartCamera,
+    deviceId, // Expose persistent device ID
+    facingMode, // Expose current facing mode
   };
 }

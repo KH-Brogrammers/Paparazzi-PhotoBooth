@@ -16,6 +16,8 @@ function CameraPage() {
     currentCamera,
     canSwitchCamera,
     switchCamera,
+    deviceId,
+    facingMode,
   } = useCameraAccess();
   const { captureImage, isCapturing } = useImageCapture();
   const cameraRefs = useRef<(CameraCardRef | null)[]>([]);
@@ -107,12 +109,12 @@ function CameraPage() {
 
   // Determine if this is primary camera based on device fingerprint order
   useEffect(() => {
-    if (cameras.length > 0) {
+    if (cameras.length > 0 && deviceId) {
       const socketConnection = socketClient.connect();
       setSocket(socketConnection);
 
-      // Register as camera with unique device ID
-      const deviceId = cameras[0]?.deviceId || "camera-device";
+      // Register as camera with persistent device ID
+      console.log("📷 Registering device:", deviceId);
       socketConnection.emit("register:camera", deviceId);
 
       // Listen for primary/secondary status from backend
@@ -146,12 +148,8 @@ function CameraPage() {
         handleClearScreens();
       });
 
-      // Register as camera with unique device ID
-      const cameraId = cameras[0]?.deviceId || "camera-device";
-      socketConnection.emit("register:camera", cameraId);
-
-      // Register cameras with admin panel
-      console.log("📷 Registering cameras with admin panel:", cameras);
+      // Register current camera with admin panel
+      console.log("📷 Registering current camera with admin panel:", cameras);
       socketConnection.emit("cameras:register", cameras);
 
       // Listen for admin requests for camera info with debounce
@@ -212,22 +210,19 @@ function CameraPage() {
         socketConnection.disconnect();
       };
     }
-  }, [cameras]);
+  }, [cameras, deviceId]);
 
-  // Re-register camera when cameras change (after switching)
+  // Update admin panel when camera details change (after switching)
   useEffect(() => {
     if (socket && socket.connected && cameras.length > 0) {
-      // Only register if camera actually changed
       const timer = setTimeout(() => {
-        const currentDeviceId = cameras[0]?.deviceId || "camera-device";
-        console.log("🔄 Camera array changed, re-registering:", currentDeviceId);
-        socket.emit("register:camera", currentDeviceId);
-        // Don't emit cameras:register here to avoid spam
+        console.log("📷 Camera details updated, notifying admin:", cameras);
+        socket.emit("cameras:register", cameras);
       }, 200);
       
       return () => clearTimeout(timer);
     }
-  }, [cameras.map(c => c.deviceId).join(','), socket]); // Only trigger when deviceIds change
+  }, [cameras.map(c => c.label).join(','), socket]); // Only trigger when camera labels change
 
   // Listen for global camera switch events
   useEffect(() => {
@@ -309,68 +304,16 @@ function CameraPage() {
 
   const handleSwitchCamera = async () => {
     if (canSwitchCamera) {
-      console.log("🔄 Starting camera switch...");
-      
-      // Disconnect current socket cleanly
-      if (socket) {
-        socket.disconnect();
-        setSocket(null);
-      }
-      
-      // Switch the camera
+      console.log("🔄 Switching camera...");
       await switchCamera();
       
-      // Wait for camera to fully initialize then reconnect
-      setTimeout(() => {
-        console.log("🔌 Reconnecting socket after camera switch...");
-        const newSocket = socketClient.connect();
-        setSocket(newSocket);
-        
-        // Set up socket listeners for the new connection
-        newSocket.on("camera:status", ({ isPrimary }: { isPrimary: boolean }) => {
-          setIsPrimaryCamera(isPrimary);
-          console.log(`📷 Camera status: ${isPrimary ? "PRIMARY" : "SECONDARY"}`);
-        });
-
-        newSocket.on("cameras:registered", (camerasData: any[]) => {
-          console.log("📷 Total cameras in system:", camerasData.length);
-          setTotalCameraCount(camerasData.length);
-        });
-
-        newSocket.on("admin:request-cameras", () => {
-          // Only respond if we have cameras
-          if (cameras.length === 0) {
-            return;
-          }
-          
-          // Clear existing timeout
-          if (adminRequestTimeoutRef.current) {
-            clearTimeout(adminRequestTimeoutRef.current);
-          }
-          
-          // Debounce admin requests
-          adminRequestTimeoutRef.current = setTimeout(() => {
-            console.log("📋 Admin requested cameras, sending:", cameras);
-            newSocket.emit("cameras:register", cameras);
-          }, 100);
-        });
-
-        newSocket.on("admin:toggle-camera-details", ({ show }: { show: boolean }) => {
-          console.log(`👁️ Camera details ${show ? "shown" : "hidden"} from admin`);
-          setShowCameraDetails(show);
-        });
-        
-        // Register the switched camera after a delay
+      // Update admin panel with new camera details
+      if (socket && cameras.length > 0) {
         setTimeout(() => {
-          if (cameras.length > 0) {
-            const switchedDeviceId = cameras[0]?.deviceId || "camera-device";
-            console.log("🔄 Registering switched camera:", switchedDeviceId);
-            newSocket.emit("register:camera", switchedDeviceId);
-            // Immediately send camera details to admin
-            newSocket.emit("cameras:register", cameras);
-          }
+          console.log("📷 Sending updated camera details to admin:", cameras);
+          socket.emit("cameras:register", cameras);
         }, 500);
-      }, 1000);
+      }
     }
   };
 
