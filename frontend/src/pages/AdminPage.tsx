@@ -860,12 +860,9 @@ function AdminPage() {
                               className="w-5 h-5 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
                             />
                             <span className="text-white">
-                              <span className="bg-blue-600 text-white text-xs px-1 py-0.5 rounded font-bold mr-2">
-                                #{screenIndex + 1}
-                              </span>
                               {screen.label}
                               <br />
-                              <span className="text-xs text-gray-400 ml-8">
+                              <span className="text-xs text-gray-400">
                                 ID: {screen.screenId.substring(screen.screenId.length - 6)}
                               </span>
                             </span>
