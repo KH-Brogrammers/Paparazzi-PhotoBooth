@@ -17,6 +17,37 @@ function AdminPage() {
   const [cameraGroups, setCameraGroups] = useState<Record<string, string>>({});
   const adminRequestTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const cameraUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Group cameras by device fingerprint
+  const groupCamerasByDevice = (cameras: any[]) => {
+    const deviceGroups: Record<string, {
+      deviceFingerprint: string;
+      cameras: any[];
+      primaryCamera: any | null;
+    }> = {};
+
+    cameras.forEach(camera => {
+      // Extract device fingerprint from camera label (e.g., "Camera 456 - ymm81f393876" -> "ymm81f393876")
+      const match = camera.label.match(/Camera \d+ - (.+)$/);
+      const deviceFingerprint = match ? match[1] : camera.deviceId;
+      
+      if (!deviceGroups[deviceFingerprint]) {
+        deviceGroups[deviceFingerprint] = {
+          deviceFingerprint,
+          cameras: [],
+          primaryCamera: null
+        };
+      }
+      
+      deviceGroups[deviceFingerprint].cameras.push(camera);
+      
+      if (camera.role === 'PRIMARY') {
+        deviceGroups[deviceFingerprint].primaryCamera = camera;
+      }
+    });
+
+    return Object.values(deviceGroups);
+  };
   const [availableGroups] = useState(['Group 1', 'Group 2', 'Group 3', 'Group 4', 'Group 5']);
 
   // Helper function to filter out built-in displays
@@ -830,7 +861,7 @@ function AdminPage() {
             </div>
           ) : (
             <div className="space-y-6">
-              {allCameras
+              {groupCamerasByDevice(allCameras
                 .filter(
                   (camera) =>
                     // Filter out old generic cameras
@@ -839,132 +870,165 @@ function AdminPage() {
                     ) &&
                     !["Front Camera", "Rear Camera"].includes(camera.label),
                 )
-                .map((camera, index) => (
-                  <div
-                    key={camera.deviceId}
-                    className="bg-gray-800 border-2 border-gray-700 rounded-lg p-6"
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center space-x-4">
-                        <h3 className="text-white font-semibold text-xl">
-                          <span className="bg-blue-600 text-white text-xs px-2 py-1 rounded font-bold mr-2">
-                            #{index + 1}
-                          </span>
-                          📷 {camera.label}
-                        </h3>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-gray-400 text-sm">Group:</span>
-                          <select
-                            value={cameraGroups[camera.deviceId] || 'Group 1'}
-                            onChange={(e) => handleCameraGroupChange(camera.deviceId, e.target.value)}
-                            className="bg-gray-700 text-white px-3 py-1 rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
-                          >
-                            {availableGroups.map(group => (
-                              <option key={group} value={group}>{group}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        <span
-                          className={`px-3 py-1 text-sm font-bold rounded-full ${
-                            camera.role === "PRIMARY"
-                              ? "bg-green-600 text-white"
-                              : "bg-gray-600 text-gray-300"
-                          }`}
-                        >
-                          {camera.role === "PRIMARY"
-                            ? "🎯 PRIMARY"
-                            : "📷 SECONDARY"}
+              ).map((deviceGroup, index) => (
+                <div
+                  key={deviceGroup.deviceFingerprint}
+                  className="bg-gray-800 border-2 border-gray-700 rounded-lg p-6"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-4">
+                      <h3 className="text-white font-semibold text-xl">
+                        <span className="bg-blue-600 text-white text-xs px-2 py-1 rounded font-bold mr-2">
+                          #{index + 1}
                         </span>
-                        {camera.role !== "PRIMARY" && (
-                          <button
-                            onClick={() => handleMakePrimary(camera.deviceId)}
-                            className="ml-2 px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded-full transition-colors"
-                          >
-                            Make Primary
-                          </button>
-                        )}
-                        <button
-                          onClick={() =>
-                            handleRenameCamera(camera.deviceId, camera.label)
-                          }
-                          className="text-blue-400 hover:text-blue-300 text-sm px-2 py-1 rounded"
+                        📱 Device {deviceGroup.deviceFingerprint}
+                      </h3>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-gray-400 text-sm">Group:</span>
+                        <select
+                          value={cameraGroups[deviceGroup.deviceFingerprint] || 'Group 1'}
+                          onChange={(e) => handleCameraGroupChange(deviceGroup.deviceFingerprint, e.target.value)}
+                          className="bg-gray-700 text-white px-3 py-1 rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
                         >
-                          ✏️ Rename
-                        </button>
-                        <button
-                          onClick={() =>
-                            handleRemoveCamera(camera.deviceId, camera.label)
-                          }
-                          className="text-red-400 hover:text-red-300 text-sm px-2 py-1 rounded"
-                        >
-                          🗑️ Remove
-                        </button>
+                          {availableGroups.map(group => (
+                            <option key={group} value={group}>{group}</option>
+                          ))}
+                        </select>
                       </div>
                     </div>
-                    <p className="text-gray-400 text-sm mb-4">
-                      Select which screens should display images from this
-                      camera:
-                    </p>
-
-                    <div className="flex space-x-3 mb-4">
+                    <div className="flex items-center space-x-3">
+                      <span
+                        className={`px-3 py-1 text-sm font-bold rounded-full ${
+                          deviceGroup.primaryCamera
+                            ? "bg-green-600 text-white"
+                            : "bg-gray-600 text-gray-300"
+                        }`}
+                      >
+                        {deviceGroup.primaryCamera
+                          ? "🎯 PRIMARY DEVICE"
+                          : "📱 SECONDARY DEVICE"}
+                      </span>
                       <button
-                        onClick={() => handleSelectAllScreens(camera.deviceId)}
-                        className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded transition-colors"
+                        onClick={() =>
+                          handleRenameCamera(deviceGroup.deviceFingerprint, `Device ${deviceGroup.deviceFingerprint}`)
+                        }
+                        className="text-blue-400 hover:text-blue-300 text-sm px-2 py-1 rounded"
+                      >
+                        ✏️ Rename
+                      </button>
+                      <button
+                        onClick={() =>
+                          handleRemoveCamera(deviceGroup.deviceFingerprint, `Device ${deviceGroup.deviceFingerprint}`)
+                        }
+                        className="text-red-400 hover:text-red-300 text-sm px-2 py-1 rounded"
+                      >
+                        🗑️ Remove
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Show available cameras for this device */}
+                  <div className="mb-4 p-4 bg-gray-700 rounded-lg">
+                    <h4 className="text-white font-medium mb-2">Available Cameras:</h4>
+                    <div className="space-y-2">
+                      {deviceGroup.cameras.map(camera => {
+                        const cameraType = camera.deviceId.includes('user-camera') ? 'Front' : 'Back';
+                        const cameraNumber = camera.label.match(/Camera (\d+)/)?.[1] || '???';
+                        return (
+                          <div key={camera.deviceId} className="flex items-center justify-between">
+                            <span className="text-gray-300">
+                              📷 {cameraType} Camera {cameraNumber}
+                              {camera.role === 'PRIMARY' && <span className="ml-2 text-green-400 text-xs">(Active)</span>}
+                            </span>
+                            {camera.role !== 'PRIMARY' && (
+                              <button
+                                onClick={() => handleMakePrimary(camera.deviceId)}
+                                className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded"
+                              >
+                                Make Active
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="text-white font-medium">
+                      Select which screens should display images from this device:
+                    </h4>
+                    <div className="flex space-x-4 mb-4">
+                      <button
+                        onClick={() => handleSelectAllScreens(deviceGroup.primaryCamera?.deviceId || deviceGroup.cameras[0]?.deviceId)}
+                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm"
                       >
                         ✓ Select All
                       </button>
                       <button
-                        onClick={() =>
-                          handleDeselectAllScreens(camera.deviceId)
-                        }
-                        className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded transition-colors"
+                        onClick={() => handleDeselectAllScreens(deviceGroup.primaryCamera?.deviceId || deviceGroup.cameras[0]?.deviceId)}
+                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm"
                       >
                         ✗ Deselect All
                       </button>
                     </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {filterBuiltInScreens(screens)
-                        .filter((screen) => !screen.isCollageScreen) // Exclude collage screens from mapping
-                        .map((screen, screenIndex) => (
-                          <label
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {filterBuiltInScreens(screens).map((screen) => {
+                        const activeCameraId = deviceGroup.primaryCamera?.deviceId || deviceGroup.cameras[0]?.deviceId;
+                        const isSelected = selectedMappings[activeCameraId]?.includes(screen.screenId) || false;
+                        return (
+                          <div
                             key={screen.screenId}
-                            className="flex items-center space-x-3 bg-gray-700/50 p-4 rounded-lg cursor-pointer hover:bg-gray-700 transition-colors"
+                            className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                              isSelected
+                                ? "border-blue-500 bg-blue-900/30"
+                                : "border-gray-600 bg-gray-700 hover:border-gray-500"
+                            }`}
+                            onClick={() =>
+                              handleCheckboxChange(activeCameraId, screen.screenId)
+                            }
                           >
-                            <input
-                              type="checkbox"
-                              checked={
-                                selectedMappings[camera.deviceId]?.includes(
-                                  screen.screenId,
-                                ) || false
-                              }
-                              onChange={() =>
-                                handleCheckboxChange(
-                                  camera.deviceId,
-                                  screen.screenId,
-                                )
-                              }
-                              className="w-5 h-5 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
-                            />
-                            <span className="text-white">
-                              {screen.label}
-                              <br />
-                              <span className="text-xs text-gray-400">
-                                ID: {screen.screenId.substring(screen.screenId.length - 6)}
-                              </span>
-                            </span>
-                          </label>
-                        ))}
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h5 className="text-white font-medium">
+                                  Screen {screen.label}
+                                </h5>
+                                <p className="text-gray-400 text-sm">
+                                  ID: {screen.screenId}
+                                </p>
+                              </div>
+                              <div
+                                className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                                  isSelected
+                                    ? "border-blue-500 bg-blue-500"
+                                    : "border-gray-400"
+                                }`}
+                              >
+                                {isSelected && (
+                                  <svg
+                                    className="w-4 h-4 text-white"
+                                    fill="currentColor"
+                                    viewBox="0 0 20 20"
+                                  >
+                                    <path
+                                      fillRule="evenodd"
+                                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                      clipRule="evenodd"
+                                    />
+                                  </svg>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-
-                    <p className="text-sm text-gray-500 mt-3">
-                      {selectedMappings[camera.deviceId]?.length || 0} screen(s)
-                      selected
+                    <p className="text-gray-400 text-sm">
+                      {(selectedMappings[deviceGroup.primaryCamera?.deviceId || deviceGroup.cameras[0]?.deviceId] || []).length} screen(s) selected
                     </p>
                   </div>
-                ))}
+                </div>
+              ))}
             </div>
           )}
         </section>

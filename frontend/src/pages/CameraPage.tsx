@@ -113,9 +113,10 @@ function CameraPage() {
       const socketConnection = socketClient.connect();
       setSocket(socketConnection);
 
-      // Register as camera with persistent device ID
-      console.log("📷 Registering device:", deviceId);
-      socketConnection.emit("register:camera", deviceId);
+      // Register as camera with actual camera device ID (not device fingerprint)
+      const cameraDeviceId = cameras[0]?.deviceId || "camera-device";
+      console.log("📷 Registering camera:", cameraDeviceId);
+      socketConnection.emit("register:camera", cameraDeviceId);
 
       // Listen for primary/secondary status from backend
       socketConnection.on(
