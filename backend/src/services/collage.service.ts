@@ -35,6 +35,11 @@ class CollageService {
         `📸 Found ${imageFiles.length} images for collage in ${folderPath}`,
       );
 
+      // Limit to prevent memory issues
+      if (imageFiles.length > 50) {
+        console.warn(`⚠️ Processing ${imageFiles.length} images for collage`);
+      }
+
       const collagePaths: string[] = [];
 
       // Determine collage save location - if folderPath contains camera subfolder, save to parent
@@ -59,26 +64,39 @@ class CollageService {
           : defaultPortrait;
 
       // Generate landscape collage
-      const landscapeBuffer = await this.createCollageFromImages(
-        imageFiles,
-        "landscape",
-        landscapeSize,
-      );
-      const landscapePath = path.join(collageSavePath, "collage_landscape.jpg");
-      fs.writeFileSync(landscapePath, landscapeBuffer);
-      collagePaths.push(landscapePath);
+      try {
+        const landscapeBuffer = await this.createCollageFromImages(
+          imageFiles,
+          "landscape",
+          landscapeSize,
+        );
+        const landscapePath = path.join(collageSavePath, "collage_landscape.jpg");
+        fs.writeFileSync(landscapePath, landscapeBuffer);
+        collagePaths.push(landscapePath);
+      } catch (error) {
+        console.error("Error creating landscape collage:", error);
+      }
 
       // Generate portrait collage
-      const portraitBuffer = await this.createCollageFromImages(
-        imageFiles,
-        "portrait",
-        portraitSize,
-      );
-      const portraitPath = path.join(collageSavePath, "collage_portrait.jpg");
-      fs.writeFileSync(portraitPath, portraitBuffer);
-      collagePaths.push(portraitPath);
+      try {
+        const portraitBuffer = await this.createCollageFromImages(
+          imageFiles,
+          "portrait",
+          portraitSize,
+        );
+        const portraitPath = path.join(collageSavePath, "collage_portrait.jpg");
+        fs.writeFileSync(portraitPath, portraitBuffer);
+        collagePaths.push(portraitPath);
+      } catch (error) {
+        console.error("Error creating portrait collage:", error);
+      }
 
       console.log(`🎨 Collages created: ${collagePaths.length} files`);
+
+      // Force garbage collection if available
+      if (global.gc) {
+        global.gc();
+      }
 
       return collagePaths;
     } catch (error) {
@@ -174,80 +192,84 @@ class CollageService {
       `🎨 Creating ${orientation} creative collage (${canvasWidth}x${canvasHeight}px) from ${imageCount} images`,
     );
 
-    // Create white background
-    const canvas = sharp({
-      create: {
-        width: canvasWidth,
-        height: canvasHeight,
-        channels: 3,
-        background: { r: 255, g: 255, b: 255 },
-      },
-    });
+    try {
+      // Create white background
+      const canvas = sharp({
+        create: {
+          width: canvasWidth,
+          height: canvasHeight,
+          channels: 3,
+          background: { r: 255, g: 255, b: 255 },
+        },
+      });
 
-    // Get creative layout based on image count
-    const layout = this.getCreativeLayout(
-      imageCount,
-      canvasWidth,
-      canvasHeight,
-    );
+      // Get creative layout based on image count
+      const layout = this.getCreativeLayout(
+        imageCount,
+        canvasWidth,
+        canvasHeight,
+      );
 
-    // Prepare composite operations
-    const compositeOperations: any[] = [];
+      // Prepare composite operations
+      const compositeOperations: any[] = [];
 
-    for (let i = 0; i < Math.min(imagePaths.length, layout.length); i++) {
-      const imageLayout = layout[i];
+      for (let i = 0; i < Math.min(imagePaths.length, layout.length); i++) {
+        const imageLayout = layout[i];
 
-      try {
-        // Process image with rotation and effects
-        let processedImage = sharp(imagePaths[i]).resize(
-          imageLayout.width,
-          imageLayout.height,
-          {
-            fit: "cover",
-            position: "center",
-            background: { r: 255, g: 255, b: 255, alpha: 1 }, // White background
-          },
-        );
+        try {
+          // Check if file exists and is readable
+          if (!fs.existsSync(imagePaths[i])) {
+            console.error(`Image file not found: ${imagePaths[i]}`);
+            continue;
+          }
 
-        // Add rotation if specified with white background
-        if (imageLayout.rotation) {
-          processedImage = processedImage.rotate(imageLayout.rotation, {
-            background: { r: 255, g: 255, b: 255, alpha: 1 }, // White background for rotation
+          // Process image with rotation and effects
+          let processedImage = sharp(imagePaths[i])
+            .resize(imageLayout.width, imageLayout.height, {
+              fit: "cover",
+              position: "center",
+              background: { r: 255, g: 255, b: 255, alpha: 1 },
+            });
+
+          // Add rotation if specified with white background
+          if (imageLayout.rotation && Math.abs(imageLayout.rotation) > 0) {
+            processedImage = processedImage.rotate(imageLayout.rotation, {
+              background: { r: 255, g: 255, b: 255, alpha: 1 },
+            });
+          }
+
+          const imageBuffer = await processedImage
+            .jpeg({ quality: 95, mozjpeg: true })
+            .toBuffer();
+
+          compositeOperations.push({
+            input: imageBuffer,
+            top: Math.max(0, imageLayout.y),
+            left: Math.max(0, imageLayout.x),
           });
+
+          // Clear processed image from memory
+          processedImage = undefined as any;
+        } catch (error) {
+          console.error(`Error processing image ${imagePaths[i]}:`, error);
         }
-
-        // Add border/shadow effect for some images
-        // if (imageLayout.border) {
-        //   processedImage = processedImage.extend({
-        //     top: 5,
-        //     bottom: 5,
-        //     left: 5,
-        //     right: 5,
-        //     background: { r: 0, g: 0, b: 0, alpha: 1 }, // Black border
-        //   });
-        // }
-
-        const imageBuffer = await processedImage
-          .jpeg({ quality: 95 })
-          .toBuffer();
-
-        compositeOperations.push({
-          input: imageBuffer,
-          top: imageLayout.y,
-          left: imageLayout.x,
-        });
-      } catch (error) {
-        console.error(`Error processing image ${imagePaths[i]}:`, error);
       }
+
+      if (compositeOperations.length === 0) {
+        throw new Error("No valid images to create collage");
+      }
+
+      // Composite all images onto the canvas
+      const collageBuffer = await canvas
+        .composite(compositeOperations)
+        .jpeg({ quality: 95, mozjpeg: true })
+        .toBuffer();
+
+      return collageBuffer;
+    } catch (error) {
+      console.error("Error in createCollageFromImages:", error);
+      throw error;
     }
-
-    // Composite all images onto the canvas
-    const collageBuffer = await canvas
-      .composite(compositeOperations)
-      .jpeg({ quality: 90 })
-      .toBuffer();
-
-    return collageBuffer;
   }
 
   /**

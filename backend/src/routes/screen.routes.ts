@@ -13,7 +13,7 @@ router.patch('/:screenId/collage-position', (req, res) => screenController.updat
 router.delete('/all', (req, res) => screenController.deleteAllScreens(req, res));
 router.delete('/:screenId', (req, res) => screenController.deleteScreen(req, res));
 router.post('/clear', (req, res) => screenActionController.clearAllScreens(req, res));
-router.post('/capture', (req, res) => screenController.saveScreenCapture(req, res));
+// router.post('/capture', (req, res) => screenController.saveScreenCapture(req, res)); // DISABLED - using original images instead
 // router.post('/upload-collage', (req, res) => screenController.uploadCollage(req, res)); // DEPRECATED
 
 export const screenRoutes = router;

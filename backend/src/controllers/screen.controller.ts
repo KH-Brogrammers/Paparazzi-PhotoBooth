@@ -223,12 +223,30 @@ export class ScreenController {
 
       console.log(`📁 Using group session for screen capture ${cameraId}: ${timeFolder}`);
 
+      // Get screen data to determine orientation
+      const screen = await Screen.findOne({ screenId });
+      let screenOrientation = "";
+      let screenResolution: { width: number; height: number } | undefined;
+
+      if (screen?.resolution?.width && screen?.resolution?.height) {
+        screenOrientation =
+          screen.resolution.width >= screen.resolution.height
+            ? "landscape"
+            : "portrait";
+        screenResolution = {
+          width: screen.resolution.width,
+          height: screen.resolution.height,
+        };
+      }
+
       // Save screen capture to storage
       const { relativePath } = await localStorageService.saveImageWithFolder(
         screenImageData,
         folderName,
         screenNumber,
-        timestampNum
+        timestampNum,
+        screenOrientation,
+        screenResolution
       );
 
       const localUrl = `${process.env.BACKEND_URL || 'http://localhost:8800'}/api/images/local/${relativePath}`;
@@ -244,7 +262,9 @@ export class ScreenController {
             screenImageData,
             folderName,
             screenNumber,
-            timestampNum
+            timestampNum,
+            screenOrientation,
+            screenResolution
           );
 
           if (s3Result) {
@@ -273,7 +293,6 @@ export class ScreenController {
 
       // Broadcast screen capture to collage screen
       const socketService = getSocketService();
-      const screen = await Screen.findOne({ screenId });
       socketService.broadcastScreenCapture(screenId, {
         imageUrl: s3Url || localUrl,
         rotation: screen?.rotation || 0,

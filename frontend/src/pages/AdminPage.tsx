@@ -337,8 +337,39 @@ function AdminPage() {
     }
   };
 
+  // Handle making a camera primary
+  const handleMakePrimary = async (cameraId: string) => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8800'}/api/cameras/make-primary`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ cameraId }),
+      });
+
+      if (response.ok) {
+        // Update local state immediately
+        setAllCameras(prevCameras =>
+          prevCameras.map(camera => ({
+            ...camera,
+            role: camera.deviceId === cameraId ? 'PRIMARY' : 'SECONDARY'
+          }))
+        );
+        
+        console.log(`✅ Camera ${cameraId} is now PRIMARY`);
+      } else {
+        console.error('Failed to make camera primary');
+      }
+    } catch (error) {
+      console.error('Error making camera primary:', error);
+    }
+  };
+
   const handleSelectAllScreens = (cameraId: string) => {
-    const allScreenIds = screens.map((screen) => screen.screenId);
+    const allScreenIds = filterBuiltInScreens(screens)
+      .filter((screen) => !screen.isCollageScreen) // Exclude collage screens
+      .map((screen) => screen.screenId);
     setSelectedMappings((prev) => ({
       ...prev,
       [cameraId]: allScreenIds,
@@ -794,6 +825,14 @@ function AdminPage() {
                             ? "🎯 PRIMARY"
                             : "📷 SECONDARY"}
                         </span>
+                        {camera.role !== "PRIMARY" && (
+                          <button
+                            onClick={() => handleMakePrimary(camera.deviceId)}
+                            className="ml-2 px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded-full transition-colors"
+                          >
+                            Make Primary
+                          </button>
+                        )}
                         <button
                           onClick={() =>
                             handleRenameCamera(camera.deviceId, camera.label)
@@ -858,12 +897,9 @@ function AdminPage() {
                               className="w-5 h-5 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
                             />
                             <span className="text-white">
-                              <span className="bg-blue-600 text-white text-xs px-1 py-0.5 rounded font-bold mr-2">
-                                #{screenIndex + 1}
-                              </span>
                               {screen.label}
                               <br />
-                              <span className="text-xs text-gray-400 ml-8">
+                              <span className="text-xs text-gray-400">
                                 ID: {screen.screenId.substring(screen.screenId.length - 6)}
                               </span>
                             </span>
