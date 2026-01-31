@@ -91,6 +91,25 @@ function AdminPage() {
             merged.push(newCamera); // Add new
           }
         });
+        console.log("📷 Updated cameras list:", merged);
+        return merged;
+      });
+    });
+
+    // Listen for individual camera registrations (for real-time updates)
+    socket.on("camera:registered", (cameraData: any) => {
+      console.log("📷 Single camera registered:", cameraData);
+      setAllCameras((prev) => {
+        const merged = [...prev];
+        const existingIndex = merged.findIndex(
+          (cam) => cam.deviceId === cameraData.deviceId,
+        );
+        if (existingIndex >= 0) {
+          merged[existingIndex] = cameraData; // Update existing
+        } else {
+          merged.push(cameraData); // Add new
+        }
+        console.log("📷 Updated cameras list (single):", merged);
         return merged;
       });
     });
@@ -118,8 +137,15 @@ function AdminPage() {
     setAllCameras([]);
     socket.emit("admin:request-cameras");
 
+    // Set up periodic refresh to ensure cameras stay updated
+    const refreshInterval = setInterval(() => {
+      console.log("🔄 Periodic camera refresh");
+      socket.emit("admin:request-cameras");
+    }, 5000); // Refresh every 5 seconds
+
     return () => {
       socket.disconnect();
+      clearInterval(refreshInterval);
     };
   }, []);
 

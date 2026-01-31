@@ -181,9 +181,37 @@ export function useCameraAccess() {
     const newFacingMode = facingMode === 'environment' ? 'user' : 'environment';
     setFacingMode(newFacingMode);
     
-    // Restart all cameras with new facing mode
-    for (const camera of cameras) {
-      await restartCamera(camera.deviceId);
+    // Generate new device fingerprint for the switched camera
+    const deviceFingerprint = await generateDeviceFingerprint();
+    const deviceIndex = Math.floor(Math.random() * 999) + 1;
+    const newDeviceId = `${newFacingMode}-camera-${deviceFingerprint}`;
+    const newLabel = `Camera ${deviceIndex} - ${deviceFingerprint}`;
+    
+    // Stop all current cameras
+    cameras.forEach(camera => stopCamera(camera.deviceId));
+    
+    // Create new camera with switched facing mode
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: newFacingMode,
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+        },
+      });
+
+      streamsRef.current.set(newDeviceId, stream);
+
+      // Update cameras array with new camera
+      setCameras([{
+        deviceId: newDeviceId,
+        label: newLabel,
+        stream,
+      }]);
+
+      console.log(`✅ Switched to ${newFacingMode} camera:`, newLabel);
+    } catch (err) {
+      console.error('Error switching camera:', err);
     }
   };
 

@@ -192,6 +192,20 @@ function CameraPage() {
     }
   }, [cameras]);
 
+  // Re-register camera when cameras change (after switching)
+  useEffect(() => {
+    if (socket && socket.connected && cameras.length > 0) {
+      // Add a delay to ensure camera is fully initialized
+      const timer = setTimeout(() => {
+        const uniqueDeviceId = cameras[0]?.deviceId || "camera-device";
+        console.log("🔄 Camera array changed, re-registering:", uniqueDeviceId);
+        socket.emit("register:camera", uniqueDeviceId);
+      }, 200);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [cameras, socket]);
+
   // Listen for global camera switch events
   useEffect(() => {
     const handleSwitchCamera = (event: CustomEvent) => {
@@ -270,9 +284,45 @@ function CameraPage() {
     }
   };
 
-  const handleSwitchCamera = () => {
+  const handleSwitchCamera = async () => {
     if (canSwitchCamera) {
-      switchCamera();
+      console.log("🔄 Starting camera switch...");
+      
+      // First switch the camera
+      await switchCamera();
+      
+      // Wait for camera to fully initialize and then re-register
+      setTimeout(() => {
+        // Always reconnect socket after camera switch to ensure clean connection
+        console.log("🔌 Reconnecting socket after camera switch...");
+        const newSocket = socketClient.connect();
+        setSocket(newSocket);
+        
+        // Set up socket listeners for the new connection
+        newSocket.on("camera:status", ({ isPrimary }: { isPrimary: boolean }) => {
+          setIsPrimaryCamera(isPrimary);
+          console.log(`📷 Camera status: ${isPrimary ? "PRIMARY" : "SECONDARY"}`);
+        });
+
+        newSocket.on("cameras:registered", (camerasData: any[]) => {
+          console.log("📷 Total cameras in system:", camerasData.length);
+          setTotalCameraCount(camerasData.length);
+        });
+        
+        // Register the switched camera - wait for cameras array to update
+        const checkAndRegister = () => {
+          if (cameras.length > 0) {
+            const uniqueDeviceId = cameras[0]?.deviceId || "camera-device";
+            console.log("🔄 Registering switched camera with NEW deviceId:", uniqueDeviceId);
+            newSocket.emit("register:camera", uniqueDeviceId);
+          } else {
+            // If cameras not updated yet, try again
+            setTimeout(checkAndRegister, 200);
+          }
+        };
+        
+        setTimeout(checkAndRegister, 500);
+      }, 1000);
     }
   };
 
