@@ -161,7 +161,7 @@ function CameraPage() {
         adminRequestTimeoutRef.current = setTimeout(() => {
           console.log("📋 Admin requested cameras, sending:", cameras);
           socketConnection.emit("cameras:register", cameras);
-        }, 100);
+        }, 500);
       });
 
       // Listen for QR code generation
@@ -208,17 +208,17 @@ function CameraPage() {
   // Re-register camera when cameras change (after switching)
   useEffect(() => {
     if (socket && socket.connected && cameras.length > 0) {
-      // Add a delay to ensure camera is fully initialized
+      // Only register if camera actually changed
       const timer = setTimeout(() => {
         const uniqueDeviceId = cameras[0]?.deviceId || "camera-device";
         console.log("🔄 Camera array changed, re-registering:", uniqueDeviceId);
         socket.emit("register:camera", uniqueDeviceId);
-        socket.emit("cameras:register", cameras);
+        // Don't emit cameras:register here to avoid spam
       }, 200);
       
       return () => clearTimeout(timer);
     }
-  }, [cameras, socket]);
+  }, [cameras.map(c => c.deviceId).join(','), socket]); // Only trigger when deviceIds change
 
   // Listen for global camera switch events
   useEffect(() => {
@@ -338,7 +338,7 @@ function CameraPage() {
           adminRequestTimeoutRef.current = setTimeout(() => {
             console.log("📋 Admin requested cameras, sending:", cameras);
             newSocket.emit("cameras:register", cameras);
-          }, 100);
+          }, 500);
         });
 
         newSocket.on("admin:toggle-camera-details", ({ show }: { show: boolean }) => {

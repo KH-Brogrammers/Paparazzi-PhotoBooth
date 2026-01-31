@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { type Camera } from '../types/camera.types';
 
-// Generate unique device identifier (without timestamp for consistency)
-const generateDeviceFingerprint = async (): Promise<string> => {
-  // Use a combination of screen resolution and user agent hash (no timestamp)
+// Generate consistent device identifier (no random numbers)
+const generateDeviceFingerprint = (): string => {
   const screenInfo = `${screen.width}x${screen.height}`;
   const userAgentHash = navigator.userAgent.split('').reduce((a, b) => {
     a = ((a << 5) - a) + b.charCodeAt(0);
@@ -11,7 +10,6 @@ const generateDeviceFingerprint = async (): Promise<string> => {
   }, 0);
   
   const deviceId = Math.abs(userAgentHash).toString(36).substring(0, 6);
-  
   return `${deviceId}${screenInfo.replace('x', '')}`;
 };
 
@@ -79,8 +77,8 @@ export function useCameraAccess() {
       // Force rear camera for ALL devices - no front camera support
       console.log('🎯 Forcing REAR camera only for ALL devices');
       
-      // Create unique device identifier
-      const deviceFingerprint = await generateDeviceFingerprint();
+      // Create consistent device identifier
+      const deviceFingerprint = generateDeviceFingerprint();
       const deviceIndex = Math.floor(Math.random() * 999) + 1; // Random 3-digit number
       
       // Always use rear camera regardless of device type
@@ -181,8 +179,8 @@ export function useCameraAccess() {
     const newFacingMode = facingMode === 'environment' ? 'user' : 'environment';
     setFacingMode(newFacingMode);
     
-    // Generate new device fingerprint for the switched camera
-    const deviceFingerprint = await generateDeviceFingerprint();
+    // Generate consistent device fingerprint for the switched camera
+    const deviceFingerprint = generateDeviceFingerprint();
     const deviceIndex = Math.floor(Math.random() * 999) + 1;
     const newDeviceId = `${newFacingMode}-camera-${deviceFingerprint}`;
     const newLabel = `Camera ${deviceIndex} - ${deviceFingerprint}`;
