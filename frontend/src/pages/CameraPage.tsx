@@ -270,6 +270,12 @@ function CameraPage() {
     }
   };
 
+  const handleSwitchCamera = () => {
+    if (canSwitchCamera) {
+      switchCamera();
+    }
+  };
+
   if (isLoading) {
     return <LoadingSpinner />;
   }
@@ -401,6 +407,36 @@ function CameraPage() {
           </>
         )}
       </main>
+
+      {/* Camera Switch button - Only show if can switch */}
+      {canSwitchCamera && (
+        <button
+          onClick={handleSwitchCamera}
+          className="fixed bottom-4 left-4 p-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg transition-colors z-50"
+          title="Switch Camera"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M3 9a2 2 0 012-2h.93l.82-1.23A2 2 0 018.17 5h7.66a2 2 0 011.42.77L18.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+            />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+            />
+          </svg>
+        </button>
+      )}
 
       {/* Refresh button - Only show for primary camera */}
       {isPrimaryCamera && (

@@ -19,6 +19,8 @@ export function useCameraAccess() {
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentCameraIndex, setCurrentCameraIndex] = useState(0);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const streamsRef = useRef<Map<string, MediaStream>>(new Map());
 
   useEffect(() => {
@@ -106,7 +108,7 @@ export function useCameraAccess() {
           // Always force rear camera for all devices
           constraints = {
             video: {
-              facingMode: 'environment', // Force rear camera
+              facingMode: facingMode, // Use current facing mode
               width: { ideal: 1920 },
               height: { ideal: 1080 },
             },
@@ -156,7 +158,7 @@ export function useCameraAccess() {
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: 'environment', // Always rear camera
+          facingMode: facingMode, // Use current facing mode
           width: { ideal: 1920 },
           height: { ideal: 1080 },
         },
@@ -174,10 +176,27 @@ export function useCameraAccess() {
     }
   };
 
+  const switchCamera = async () => {
+    // Toggle between front and rear camera
+    const newFacingMode = facingMode === 'environment' ? 'user' : 'environment';
+    setFacingMode(newFacingMode);
+    
+    // Restart all cameras with new facing mode
+    for (const camera of cameras) {
+      await restartCamera(camera.deviceId);
+    }
+  };
+
+  const canSwitchCamera = true; // Always show button for user control
+  const currentCamera = cameras[currentCameraIndex];
+
   return {
     cameras,
     isLoading,
     error,
+    currentCamera,
+    canSwitchCamera,
+    switchCamera,
     stopCamera,
     restartCamera,
   };
