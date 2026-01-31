@@ -159,9 +159,11 @@ function CameraPage() {
         
         // Debounce admin requests to prevent spam
         adminRequestTimeoutRef.current = setTimeout(() => {
-          console.log("📋 Admin requested cameras, sending:", cameras);
-          socketConnection.emit("cameras:register", cameras);
-        }, 500);
+          if (cameras.length > 0) {
+            console.log("📋 Admin requested cameras, sending:", cameras);
+            socketConnection.emit("cameras:register", cameras);
+          }
+        }, 300);
       });
 
       // Listen for QR code generation
@@ -336,9 +338,11 @@ function CameraPage() {
           
           // Debounce admin requests
           adminRequestTimeoutRef.current = setTimeout(() => {
-            console.log("📋 Admin requested cameras, sending:", cameras);
-            newSocket.emit("cameras:register", cameras);
-          }, 500);
+            if (cameras.length > 0) {
+              console.log("📋 Admin requested cameras, sending:", cameras);
+              newSocket.emit("cameras:register", cameras);
+            }
+          }, 300);
         });
 
         newSocket.on("admin:toggle-camera-details", ({ show }: { show: boolean }) => {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { screenApi, mappingApi } from "../services/backend-api.service";
 import { socketClient } from "../services/socket.service";
 import { type Screen, type CameraMapping } from "../types/screen.types";
@@ -15,6 +15,7 @@ function AdminPage() {
   const [showScreenDetails, setShowScreenDetails] = useState(false);
   const [showCameraDetails, setShowCameraDetails] = useState(false);
   const [cameraGroups, setCameraGroups] = useState<Record<string, string>>({});
+  const adminRequestTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [availableGroups] = useState(['Group 1', 'Group 2', 'Group 3', 'Group 4', 'Group 5']);
 
   // Helper function to filter out built-in displays
@@ -74,26 +75,34 @@ function AdminPage() {
       loadData();
     });
 
-    // Listen for camera registrations from all devices
+    // Listen for camera registrations from all devices (debounced)
     socket.on("cameras:registered", (camerasData: any[]) => {
       console.log("📷 Cameras registered from device:", camerasData);
-      setAllCameras((prev) => {
-        // Merge cameras from different devices, avoiding duplicates
-        const merged = [...prev];
-        camerasData.forEach((newCamera) => {
-          // Remove any existing camera with same deviceId to avoid duplicates
-          const existingIndex = merged.findIndex(
-            (cam) => cam.deviceId === newCamera.deviceId,
-          );
-          if (existingIndex >= 0) {
-            merged[existingIndex] = newCamera; // Update existing
-          } else {
-            merged.push(newCamera); // Add new
-          }
+      
+      // Debounce camera updates to prevent spam
+      if (adminRequestTimeoutRef.current) {
+        clearTimeout(adminRequestTimeoutRef.current);
+      }
+      
+      adminRequestTimeoutRef.current = setTimeout(() => {
+        setAllCameras((prev) => {
+          // Merge cameras from different devices, avoiding duplicates
+          const merged = [...prev];
+          camerasData.forEach((newCamera) => {
+            // Remove any existing camera with same deviceId to avoid duplicates
+            const existingIndex = merged.findIndex(
+              (cam) => cam.deviceId === newCamera.deviceId,
+            );
+            if (existingIndex >= 0) {
+              merged[existingIndex] = newCamera; // Update existing
+            } else {
+              merged.push(newCamera); // Add new
+            }
+          });
+          console.log("📷 Updated cameras list:", merged);
+          return merged;
         });
-        console.log("📷 Updated cameras list:", merged);
-        return merged;
-      });
+      }, 200);
     });
 
     // Listen for direct camera list from backend (active cameras only)
@@ -142,19 +151,23 @@ function AdminPage() {
       },
     );
 
-    // Clear existing cameras and request fresh data
+    // Clear existing cameras and request fresh data (only once)
     setAllCameras([]);
-    socket.emit("admin:request-cameras");
-
-    // Set up periodic refresh to ensure cameras stay updated
-    const refreshInterval = setInterval(() => {
-      console.log("🔄 Periodic camera refresh");
+    
+    // Debounce admin camera requests
+    if (adminRequestTimeoutRef.current) {
+      clearTimeout(adminRequestTimeoutRef.current);
+    }
+    
+    adminRequestTimeoutRef.current = setTimeout(() => {
       socket.emit("admin:request-cameras");
-    }, 5000); // Refresh every 5 seconds
+    }, 100);
 
     return () => {
+      if (adminRequestTimeoutRef.current) {
+        clearTimeout(adminRequestTimeoutRef.current);
+      }
       socket.disconnect();
-      clearInterval(refreshInterval);
     };
   }, []);
 
