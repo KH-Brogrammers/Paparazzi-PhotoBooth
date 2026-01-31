@@ -152,6 +152,11 @@ function CameraPage() {
 
       // Listen for admin requests for camera info with debounce
       socketConnection.on("admin:request-cameras", () => {
+        // Only respond if we have cameras
+        if (cameras.length === 0) {
+          return;
+        }
+        
         // Clear existing timeout
         if (adminRequestTimeoutRef.current) {
           clearTimeout(adminRequestTimeoutRef.current);
@@ -159,11 +164,9 @@ function CameraPage() {
         
         // Debounce admin requests to prevent spam
         adminRequestTimeoutRef.current = setTimeout(() => {
-          if (cameras.length > 0) {
-            console.log("📋 Admin requested cameras, sending:", cameras);
-            socketConnection.emit("cameras:register", cameras);
-          }
-        }, 300);
+          console.log("📋 Admin requested cameras, sending:", cameras);
+          socketConnection.emit("cameras:register", cameras);
+        }, 100);
       });
 
       // Listen for QR code generation
@@ -331,6 +334,11 @@ function CameraPage() {
         });
 
         newSocket.on("admin:request-cameras", () => {
+          // Only respond if we have cameras
+          if (cameras.length === 0) {
+            return;
+          }
+          
           // Clear existing timeout
           if (adminRequestTimeoutRef.current) {
             clearTimeout(adminRequestTimeoutRef.current);
@@ -338,11 +346,9 @@ function CameraPage() {
           
           // Debounce admin requests
           adminRequestTimeoutRef.current = setTimeout(() => {
-            if (cameras.length > 0) {
-              console.log("📋 Admin requested cameras, sending:", cameras);
-              newSocket.emit("cameras:register", cameras);
-            }
-          }, 300);
+            console.log("📋 Admin requested cameras, sending:", cameras);
+            newSocket.emit("cameras:register", cameras);
+          }, 100);
         });
 
         newSocket.on("admin:toggle-camera-details", ({ show }: { show: boolean }) => {

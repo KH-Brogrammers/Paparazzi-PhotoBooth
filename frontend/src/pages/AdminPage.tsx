@@ -16,6 +16,7 @@ function AdminPage() {
   const [showCameraDetails, setShowCameraDetails] = useState(false);
   const [cameraGroups, setCameraGroups] = useState<Record<string, string>>({});
   const adminRequestTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const cameraUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [availableGroups] = useState(['Group 1', 'Group 2', 'Group 3', 'Group 4', 'Group 5']);
 
   // Helper function to filter out built-in displays
@@ -80,11 +81,11 @@ function AdminPage() {
       console.log("📷 Cameras registered from device:", camerasData);
       
       // Debounce camera updates to prevent spam
-      if (adminRequestTimeoutRef.current) {
-        clearTimeout(adminRequestTimeoutRef.current);
+      if (cameraUpdateTimeoutRef.current) {
+        clearTimeout(cameraUpdateTimeoutRef.current);
       }
       
-      adminRequestTimeoutRef.current = setTimeout(() => {
+      cameraUpdateTimeoutRef.current = setTimeout(() => {
         setAllCameras((prev) => {
           // Merge cameras from different devices, avoiding duplicates
           const merged = [...prev];
@@ -102,7 +103,7 @@ function AdminPage() {
           console.log("📷 Updated cameras list:", merged);
           return merged;
         });
-      }, 200);
+      }, 100);
     });
 
     // Listen for direct camera list from backend (active cameras only)
@@ -154,18 +155,15 @@ function AdminPage() {
     // Clear existing cameras and request fresh data (only once)
     setAllCameras([]);
     
-    // Debounce admin camera requests
-    if (adminRequestTimeoutRef.current) {
-      clearTimeout(adminRequestTimeoutRef.current);
-    }
-    
-    adminRequestTimeoutRef.current = setTimeout(() => {
-      socket.emit("admin:request-cameras");
-    }, 100);
+    // Request cameras only once on mount
+    socket.emit("admin:request-cameras");
 
     return () => {
       if (adminRequestTimeoutRef.current) {
         clearTimeout(adminRequestTimeoutRef.current);
+      }
+      if (cameraUpdateTimeoutRef.current) {
+        clearTimeout(cameraUpdateTimeoutRef.current);
       }
       socket.disconnect();
     };
