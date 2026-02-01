@@ -57,6 +57,7 @@ export default defineConfig(({ mode }) => {
         'pap.magictap.app',
         '13.233.215.148',
         'localhost',
+        '*'
       ],
 
       // ✅ Correct HMR when behind Nginx + HTTPS
