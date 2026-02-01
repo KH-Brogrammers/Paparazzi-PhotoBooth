@@ -453,7 +453,8 @@ function AdminPage() {
   // Handle making a camera primary
   const handleMakePrimary = async (cameraId: string) => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8800'}/api/cameras/make-primary`, {
+      const backendUrl = import.meta.env.VITE_API_BACKEND_URL || window.location.origin.replace(window.location.port, '8800');
+      const response = await fetch(`${backendUrl}/api/cameras/make-primary`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
