@@ -5,6 +5,7 @@ import { config } from "../config/env.config";
 
 class CollageService {
   private basePath: string;
+  private generationLocks: Map<string, Promise<string[]>> = new Map();
 
   constructor() {
     this.basePath = config.imageStoragePath;
@@ -14,6 +15,29 @@ class CollageService {
    * Generate collages for both orientations from all images in a folder
    */
   async generateCollage(
+    folderPath: string,
+    screenResolution?: { width: number; height: number },
+  ): Promise<string[]> {
+    // Check if generation is already in progress for this folder
+    if (this.generationLocks.has(folderPath)) {
+      console.log(`⏳ Collage generation already in progress for ${folderPath}, waiting...`);
+      return await this.generationLocks.get(folderPath)!;
+    }
+
+    // Create generation promise and store it
+    const generationPromise = this.performCollageGeneration(folderPath, screenResolution);
+    this.generationLocks.set(folderPath, generationPromise);
+
+    try {
+      const result = await generationPromise;
+      return result;
+    } finally {
+      // Always clean up the lock
+      this.generationLocks.delete(folderPath);
+    }
+  }
+
+  private async performCollageGeneration(
     folderPath: string,
     screenResolution?: { width: number; height: number },
   ): Promise<string[]> {
@@ -50,6 +74,15 @@ class CollageService {
         collageSavePath = path.join(this.basePath, pathParts[0]);
       }
 
+      // Check if collages already exist
+      const landscapePath = path.join(collageSavePath, "collage_landscape.jpg");
+      const portraitPath = path.join(collageSavePath, "collage_portrait.jpg");
+      
+      if (fs.existsSync(landscapePath) && fs.existsSync(portraitPath)) {
+        console.log(`✅ Collages already exist for ${folderPath}`);
+        return [landscapePath, portraitPath];
+      }
+
       // Use screen resolution if provided, otherwise use default sizes
       const defaultLandscape = { width: 1920, height: 1160 };
       const defaultPortrait = { width: 1080, height: 2000 };
@@ -63,32 +96,38 @@ class CollageService {
           ? screenResolution
           : defaultPortrait;
 
-      // Generate landscape collage
-      try {
-        const landscapeBuffer = await this.createCollageFromImages(
-          imageFiles,
-          "landscape",
-          landscapeSize,
-        );
-        const landscapePath = path.join(collageSavePath, "collage_landscape.jpg");
-        fs.writeFileSync(landscapePath, landscapeBuffer);
+      // Generate landscape collage only if it doesn't exist
+      if (!fs.existsSync(landscapePath)) {
+        try {
+          const landscapeBuffer = await this.createCollageFromImages(
+            imageFiles,
+            "landscape",
+            landscapeSize,
+          );
+          fs.writeFileSync(landscapePath, landscapeBuffer);
+          collagePaths.push(landscapePath);
+        } catch (error) {
+          console.error("Error creating landscape collage:", error);
+        }
+      } else {
         collagePaths.push(landscapePath);
-      } catch (error) {
-        console.error("Error creating landscape collage:", error);
       }
 
-      // Generate portrait collage
-      try {
-        const portraitBuffer = await this.createCollageFromImages(
-          imageFiles,
-          "portrait",
-          portraitSize,
-        );
-        const portraitPath = path.join(collageSavePath, "collage_portrait.jpg");
-        fs.writeFileSync(portraitPath, portraitBuffer);
+      // Generate portrait collage only if it doesn't exist
+      if (!fs.existsSync(portraitPath)) {
+        try {
+          const portraitBuffer = await this.createCollageFromImages(
+            imageFiles,
+            "portrait",
+            portraitSize,
+          );
+          fs.writeFileSync(portraitPath, portraitBuffer);
+          collagePaths.push(portraitPath);
+        } catch (error) {
+          console.error("Error creating portrait collage:", error);
+        }
+      } else {
         collagePaths.push(portraitPath);
-      } catch (error) {
-        console.error("Error creating portrait collage:", error);
       }
 
       console.log(`🎨 Collages created: ${collagePaths.length} files`);
@@ -112,7 +151,29 @@ class CollageService {
     folderPath: string,
     screenResolution?: { width: number; height: number },
   ): Promise<{ localPaths: string[]; s3Urls?: string[] }> {
-    const localPaths = await this.generateCollage(folderPath, screenResolution);
+    // Use the same mutex system for S3 uploads
+    const lockKey = `s3_${folderPath}`;
+    if (this.generationLocks.has(lockKey)) {
+      console.log(`⏳ S3 collage generation already in progress for ${folderPath}, waiting...`);
+      const result = await this.generationLocks.get(lockKey)!;
+      return { localPaths: result };
+    }
+
+    const generationPromise = this.performS3CollageGeneration(folderPath, screenResolution);
+    this.generationLocks.set(lockKey, generationPromise.then(r => r.localPaths));
+
+    try {
+      return await generationPromise;
+    } finally {
+      this.generationLocks.delete(lockKey);
+    }
+  }
+
+  private async performS3CollageGeneration(
+    folderPath: string,
+    screenResolution?: { width: number; height: number },
+  ): Promise<{ localPaths: string[]; s3Urls?: string[] }> {
+    const localPaths = await this.performCollageGeneration(folderPath, screenResolution);
 
     try {
       // Import S3 service dynamically to avoid circular dependencies
@@ -192,9 +253,11 @@ class CollageService {
       `🎨 Creating ${orientation} creative collage (${canvasWidth}x${canvasHeight}px) from ${imageCount} images`,
     );
 
+    let canvas: sharp.Sharp | undefined;
+    
     try {
       // Create white background
-      const canvas = sharp({
+      canvas = sharp({
         create: {
           width: canvasWidth,
           height: canvasHeight,
@@ -220,6 +283,13 @@ class CollageService {
           // Check if file exists and is readable
           if (!fs.existsSync(imagePaths[i])) {
             console.error(`Image file not found: ${imagePaths[i]}`);
+            continue;
+          }
+
+          // Verify file is not corrupted
+          const stats = fs.statSync(imagePaths[i]);
+          if (stats.size === 0) {
+            console.error(`Image file is empty: ${imagePaths[i]}`);
             continue;
           }
 
@@ -252,6 +322,7 @@ class CollageService {
           processedImage = undefined as any;
         } catch (error) {
           console.error(`Error processing image ${imagePaths[i]}:`, error);
+          // Continue with other images instead of failing completely
         }
       }
 
@@ -259,7 +330,7 @@ class CollageService {
         throw new Error("No valid images to create collage");
       }
 
-      // Composite all images onto the canvas
+      // Composite all images onto the canvas with error handling
       const collageBuffer = await canvas
         .composite(compositeOperations)
         .jpeg({ quality: 95, mozjpeg: true })
@@ -269,6 +340,14 @@ class CollageService {
     } catch (error) {
       console.error("Error in createCollageFromImages:", error);
       throw error;
+    } finally {
+      // Clean up canvas reference
+      canvas = undefined;
+      
+      // Force garbage collection if available
+      if (global.gc) {
+        global.gc();
+      }
     }
   }
 
