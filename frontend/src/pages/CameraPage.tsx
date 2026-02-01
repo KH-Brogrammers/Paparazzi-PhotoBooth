@@ -253,15 +253,15 @@ function CameraPage() {
   const handleCaptureAll = async () => {
     if (isCapturing || cameras.length === 0) return;
 
-    // If primary camera, send command to all cameras
+    // If primary camera, send command to all cameras AND capture own photo
     if (isPrimaryCamera && socket) {
       setShowCapturedMessage(true);
       setTimeout(() => setShowCapturedMessage(false), 2000);
       socket.emit("camera:capture-all");
-      return;
+      // Don't return - continue to capture own photo
     }
 
-    // Execute capture (for both primary and secondary when commanded)
+    // Execute capture (for both primary and secondary cameras)
     cameraRefs.current[0]?.showFlash();
 
     try {
@@ -308,11 +308,18 @@ function CameraPage() {
       console.log("🔄 Switching camera...");
       await switchCamera();
       
-      // Update admin panel with new camera details
+      // Update admin panel with new camera details and ensure it becomes primary
       if (socket && cameras.length > 0) {
         setTimeout(() => {
           console.log("📷 Sending updated camera details to admin:", cameras);
           socket.emit("cameras:register", cameras);
+          
+          // Make the switched camera primary immediately
+          const newCameraId = cameras[0]?.deviceId;
+          if (newCameraId) {
+            console.log("🎯 Making switched camera primary:", newCameraId);
+            socket.emit("camera:make-primary", newCameraId);
+          }
         }, 500);
       }
     }

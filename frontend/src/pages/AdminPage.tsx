@@ -966,7 +966,8 @@ function AdminPage() {
                         const cameraNumber = camera.label.match(/Camera (\d+)/)?.[1] || '???';
                         return (
                           <div key={camera.deviceId} className="flex items-center justify-between">
-                            <span className="text-gray-300">
+                            <span className="text-gray-300 flex items-center">
+                              <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
                               📷 {cameraType} Camera {cameraNumber}
                               {camera.role === 'PRIMARY' && <span className="ml-2 text-green-400 text-xs">(Active)</span>}
                             </span>
