@@ -237,29 +237,31 @@ export class ImageController {
     }
   }
 
-  // Generate group-based collage
+  // Generate group-based collage - only after ALL cameras finish storing photos
   private async generateGroupCollage(
     groupId: string,
     timeFolder: string,
     timestampNum: number,
   ): Promise<void> {
-    // Wait a bit for other cameras in the group to finish
-    setTimeout(async () => {
+    // Wait for all cameras to finish, then check multiple times
+    const checkAndGenerate = async (attempt: number = 1): Promise<void> => {
       try {
         // Get all cameras in this group
         const groupCameras = await CameraMapping.find({ groupId });
         const groupCameraIds = groupCameras.map((cam) => cam.cameraId);
 
         console.log(
-          `🎯 Checking group ${groupId} with ${groupCameraIds.length} cameras`,
+          `🎯 Checking group ${groupId} with ${groupCameraIds.length} cameras (attempt ${attempt})`,
         );
 
-        // Check if all cameras in the group have saved images in this time folder
         const basePath = localStorageService.getBasePath();
         const groupFolderPath = path.join(basePath, timeFolder);
 
         if (!fs.existsSync(groupFolderPath)) {
           console.log(`⏳ Group folder not ready yet: ${timeFolder}`);
+          if (attempt < 3) {
+            setTimeout(() => checkAndGenerate(attempt + 1), 2000);
+          }
           return;
         }
 
@@ -271,21 +273,44 @@ export class ImageController {
           )
           .filter((cameraId) => groupCameraIds.includes(cameraId));
 
+        // Count total images from all available cameras
+        let totalImages = 0;
+        for (const cameraId of availableCameras) {
+          const cameraPath = path.join(groupFolderPath, cameraId);
+          if (fs.existsSync(cameraPath)) {
+            const imageFiles = fs.readdirSync(cameraPath).filter(file => 
+              file.endsWith('.jpg') || file.endsWith('.jpeg') || file.endsWith('.png')
+            );
+            totalImages += imageFiles.length;
+          }
+        }
+
         console.log(
-          `📸 Found ${availableCameras.length}/${groupCameraIds.length} cameras ready in group ${groupId}`,
+          `📸 Found ${availableCameras.length}/${groupCameraIds.length} cameras with ${totalImages} total images in ${timeFolder}`,
         );
 
-        // Generate collage if we have images from cameras in this group
-        if (availableCameras.length > 0) {
-          const collageResult =
-            await collageService.generateCollageWithS3Upload(timeFolder);
-          console.log(
-            `🎨 Group ${groupId} collage generated for folder: ${timeFolder}`,
-          );
+        // Only generate collage if we have ALL cameras OR if this is the final attempt
+        const allCamerasReady = availableCameras.length === groupCameraIds.length;
+        const shouldGenerate = allCamerasReady || attempt >= 3;
 
-          if (collageResult.s3Urls && collageResult.s3Urls.length > 0) {
-            console.log(`☁️ Group ${groupId} collages uploaded to S3`);
+        if (totalImages > 0 && shouldGenerate) {
+          // Delete existing collages to force regeneration with all current images
+          const landscapePath = path.join(groupFolderPath, "collage_landscape.jpg");
+          const portraitPath = path.join(groupFolderPath, "collage_portrait.jpg");
+          
+          if (fs.existsSync(landscapePath)) {
+            fs.unlinkSync(landscapePath);
+            console.log(`🗑️ Deleted existing landscape collage to regenerate with ${totalImages} images`);
           }
+          if (fs.existsSync(portraitPath)) {
+            fs.unlinkSync(portraitPath);
+            console.log(`🗑️ Deleted existing portrait collage to regenerate with ${totalImages} images`);
+          }
+
+          const collageResult = await collageService.generateCollageWithS3Upload(timeFolder);
+          console.log(
+            `🎨 Group ${groupId} collage generated with ${totalImages} images from ${availableCameras.length} cameras`,
+          );
 
           // Emit collage to collage screens
           const socketService = getSocketService();
@@ -297,20 +322,14 @@ export class ImageController {
 
           if (connectedCollageScreens.length > 0) {
             for (const screen of connectedCollageScreens) {
-              // Determine orientation based on screen resolution
               const isLandscape =
                 screen.resolution &&
                 screen.resolution.width >= screen.resolution.height;
               const orientation = isLandscape ? "landscape" : "portrait";
 
-              // Create collage URL
-              const backendUrl =
-                process.env.BACKEND_URL || "http://localhost:8800";
+              const backendUrl = process.env.BACKEND_URL || "http://localhost:8800";
               const collageUrl = `${backendUrl}/api/images/collage/${encodeURIComponent(timeFolder)}?orientation=${orientation}`;
 
-              console.log(`🖼️ Generated collage URL: ${collageUrl}`);
-
-              // Emit collage to this screen
               socketService.emitImageToScreens([screen.screenId], {
                 imageId: `collage_${timestampNum}`,
                 cameraId: "collage",
@@ -323,15 +342,22 @@ export class ImageController {
               });
 
               console.log(
-                `🖼️ Group ${groupId} collage (${orientation}) sent to screen: ${screen.screenId}`,
+                `🖼️ Group ${groupId} collage (${orientation}) with ${totalImages} images sent to screen: ${screen.screenId}`,
               );
             }
           }
+        } else if (!shouldGenerate) {
+          // Wait and try again if not all cameras are ready
+          console.log(`⏳ Waiting for more cameras... (${availableCameras.length}/${groupCameraIds.length})`);
+          setTimeout(() => checkAndGenerate(attempt + 1), 7000);
         }
       } catch (error) {
         console.error(`Error generating group ${groupId} collage:`, error);
       }
-    }, 2000); // Wait 2 seconds for other cameras to finish
+    };
+
+    // Start checking after initial delay
+    setTimeout(() => checkAndGenerate(1), 5000);
   }
 
   // Get all images
